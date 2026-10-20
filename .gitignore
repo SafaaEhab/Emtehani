@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+bin/
+**/bin/
+obj/
+**/obj/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+**/appsettings.Development.json
+
+# IDE and tooling
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.log
+
+# OpenCode local workspace
+.opencode/
+
+# OS files
+Thumbs.db
+.DS_Store
