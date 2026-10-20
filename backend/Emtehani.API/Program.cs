@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,8 +16,18 @@ using System.Threading.RateLimiting;
 using System.Security.Cryptography;
 using Emtehani.Domain.Services;
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddCors(o => o.AddPolicy("frontend", p => p.WithOrigins(builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
+var allowedOrigins = (builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+builder.Services.AddCors(o => o.AddPolicy("frontend", p => p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 var jwtKey = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
@@ -40,7 +51,14 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("auth", context => PerIp(context, 60));
     o.AddPolicy("join", context => PerIp(context, 30));
 });
-builder.Services.AddProblemDetails(); var app = builder.Build(); var finalizeLock = new SemaphoreSlim(1, 1);
+builder.Services.AddProblemDetails();
+var app = builder.Build();
+var finalizeLock = new SemaphoreSlim(1, 1);
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.EnsureCreatedAsync();
+}
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
@@ -65,12 +83,18 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         traceId = context.TraceIdentifier
     });
 }));
-app.UseSwagger(); app.UseSwaggerUI(); app.UseCors("frontend"); app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
+app.UseForwardedHeaders(); app.UseSwagger(); app.UseSwaggerUI(); app.UseCors("frontend"); app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapGet("/api", () => Results.Ok(new { service = "Emtehani API", version = "1.0", docs = "/swagger" }));
 string Hash(string password, string salt) => Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(password, Convert.FromBase64String(salt), 120000, HashAlgorithmName.SHA256, 32));
 string Salt() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 string UserId(ClaimsPrincipal p) => p.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+static bool IsUniqueViolation(Exception? ex) => ex switch
+{
+    Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 } => true,
+    Npgsql.PostgresException { SqlState: "23505" } => true,
+    _ => false
+};
 async Task Audit(AppDbContext db, Guid? actor, string action, string type, string? id, string? details = null) { db.AuditEvents.Add(new AuditEvent { ActorId = actor, Action = action, EntityType = type, EntityId = id, Details = details }); await db.SaveChangesAsync(); }
 async Task<bool> SendVerificationEmail(AppUser user, string verifyToken)
 {
@@ -131,14 +155,14 @@ app.MapPost("/api/auth/register", async (RegisterRequest req, AppDbContext db, E
   var role = string.Equals(req.Role, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Teacher" : "Student";
   var salt = Salt();
   var smtpHost = builder.Configuration["Email:SmtpHost"];
+  var autoConfirmWithoutSmtp = builder.Configuration.GetValue("Auth:AutoConfirmWithoutSmtp", app.Environment.IsDevelopment());
   if (string.IsNullOrWhiteSpace(smtpHost))
   {
-    // Development fallback: without SMTP, confirm the account automatically so the app stays usable locally.
-    if (!app.Environment.IsDevelopment())
+    if (!autoConfirmWithoutSmtp)
       return Results.Problem(statusCode: 503, title: "خدمة تأكيد البريد غير مهيأة. يرجى التواصل مع إدارة المنصة.", extensions: new Dictionary<string, object?> { ["message"] = "خدمة البريد الإلكتروني غير متاحة حاليًا." });
     db.Users.Add(new AppUser { FullName = req.FullName.Trim(), Email = email, Role = role, EmailConfirmed = true, PasswordHash = salt + ":" + Hash(req.Password, salt) });
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "تم إنشاء الحساب وتفعيله تلقائيًا (بيئة تطوير بدون SMTP). يمكنك تسجيل الدخول الآن." });
+    return Results.Ok(new { message = "تم إنشاء الحساب وتفعيله تلقائيًا. يمكنك تسجيل الدخول الآن." });
   }
   var verifyToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
   var user = new AppUser { FullName = req.FullName.Trim(), Email = email, Role = role, EmailConfirmed = false, EmailVerificationToken = verifyToken, EmailVerificationExpiresUtc = DateTime.UtcNow.AddHours(24), PasswordHash = salt + ":" + Hash(req.Password, salt) };
@@ -288,7 +312,7 @@ app.MapPost("/api/exams/{id:guid}/start", async (Guid id, ClaimsPrincipal p, App
     db.Submissions.Add(sub);
     await db.SaveChangesAsync();
   }
-  catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
+  catch (DbUpdateException ex) when (IsUniqueViolation(ex.InnerException))
   {
     db.ChangeTracker.Clear();
     var raced = await db.Submissions.FirstOrDefaultAsync(s => s.ExamId == id && s.StudentId == uid && s.Status == "InProgress");
@@ -325,7 +349,9 @@ app.MapPost("/api/submissions/{id:guid}/submit", async (Guid id, SubmitRequest? 
 {
   if (!Guid.TryParse(UserId(p), out var uid)) return Results.Unauthorized();
   await using var tx = await db.Database.BeginTransactionAsync();
-  var claimed = await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE Submissions SET Status = 'Processing' WHERE Id = {id} AND StudentId = {uid} AND Status = 'InProgress'");
+  var claimed = await db.Submissions
+      .Where(s => s.Id == id && s.StudentId == uid && s.Status == "InProgress")
+      .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.Status, "Processing"));
   if (claimed == 0)
   {
     var alreadySubmitted = await db.Submissions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id && s.StudentId == uid && s.Status != "InProgress" && s.Status != "Processing");
@@ -366,7 +392,8 @@ app.MapGet("/api/results/mine", async (ClaimsPrincipal p, AppDbContext db) =>
 {
   await FinalizeExpired(db);
   if (!Guid.TryParse(UserId(p), out var studentId)) return Results.Unauthorized();
-  return Results.Ok(await db.Submissions.Where(s => s.StudentId == studentId && s.Status != "InProgress" && s.Status != "Abandoned").OrderByDescending(s => s.SubmittedAtUtc).Select(s => new { s.Id, s.ExamId, ExamTitle = s.Exam!.Title, TeacherName = db.Users.Where(u => u.Id == s.Exam.TeacherId).Select(u => u.FullName).FirstOrDefault(), Subject = s.Exam.Description, Score = s.Status == "Submitted" || s.Status == "Reviewed" ? s.Score : (decimal?)null, s.MaxScore, s.Status, s.SubmittedAtUtc, s.StartedAtUtc, DurationSeconds = s.SubmittedAtUtc.HasValue ? (int)(s.SubmittedAtUtc.Value - s.StartedAtUtc).TotalSeconds : (int?)null, s.AttemptNumber, s.FocusLossDetected, s.FocusLossCount, s.CopyAttemptCount, s.ScreenshotAttemptCount }).ToListAsync());
+  var submissions = await db.Submissions.Where(s => s.StudentId == studentId && s.Status != "InProgress" && s.Status != "Abandoned").OrderByDescending(s => s.SubmittedAtUtc).Select(s => new { s.Id, s.ExamId, ExamTitle = s.Exam!.Title, TeacherName = db.Users.Where(u => u.Id == s.Exam.TeacherId).Select(u => u.FullName).FirstOrDefault(), Subject = s.Exam.Description, Score = s.Status == "Submitted" || s.Status == "Reviewed" ? s.Score : (decimal?)null, s.MaxScore, s.Status, s.SubmittedAtUtc, s.StartedAtUtc, s.AttemptNumber, s.FocusLossDetected, s.FocusLossCount, s.CopyAttemptCount, s.ScreenshotAttemptCount }).ToListAsync();
+  return Results.Ok(submissions.Select(s => new { s.Id, s.ExamId, s.ExamTitle, s.TeacherName, s.Subject, s.Score, s.MaxScore, s.Status, s.SubmittedAtUtc, s.StartedAtUtc, DurationSeconds = s.SubmittedAtUtc.HasValue ? (int)(s.SubmittedAtUtc.Value - s.StartedAtUtc).TotalSeconds : (int?)null, s.AttemptNumber, s.FocusLossDetected, s.FocusLossCount, s.CopyAttemptCount, s.ScreenshotAttemptCount }).ToList());
 }).RequireAuthorization();
 app.MapGet("/api/exams/{id:guid}/results", async (Guid id, ClaimsPrincipal p, AppDbContext db, int page = 1, int pageSize = 25) =>
 {

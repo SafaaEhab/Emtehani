@@ -27,6 +27,14 @@ obj/
 # OpenCode local workspace
 .opencode/
 
+# Vercel local project metadata
+.vercel/
+**/.vercel/
+
+# Local agent tooling
+.agents/
+skills-lock.json
+
 # OS files
 Thumbs.db
 .DS_Store
