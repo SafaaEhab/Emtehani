@@ -155,8 +155,13 @@ app.MapPost("/api/auth/register", async (RegisterRequest req, AppDbContext db, E
   var role = string.Equals(req.Role, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Teacher" : "Student";
   var salt = Salt();
   var smtpHost = builder.Configuration["Email:SmtpHost"];
+  var smtpUsername = builder.Configuration["Email:Username"];
+  var smtpPassword = builder.Configuration["Email:Password"];
+  var smtpConfigured = !string.IsNullOrWhiteSpace(smtpHost)
+      && !string.IsNullOrWhiteSpace(smtpUsername)
+      && !string.IsNullOrWhiteSpace(smtpPassword);
   var autoConfirmWithoutSmtp = builder.Configuration.GetValue("Auth:AutoConfirmWithoutSmtp", app.Environment.IsDevelopment());
-  if (string.IsNullOrWhiteSpace(smtpHost))
+  if (!smtpConfigured)
   {
     if (!autoConfirmWithoutSmtp)
       return Results.Problem(statusCode: 503, title: "خدمة تأكيد البريد غير مهيأة. يرجى التواصل مع إدارة المنصة.", extensions: new Dictionary<string, object?> { ["message"] = "خدمة البريد الإلكتروني غير متاحة حاليًا." });
