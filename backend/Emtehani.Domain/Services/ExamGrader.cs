@@ -5,7 +5,7 @@ namespace Emtehani.Domain.Services;
 public static class ExamGrader
 {
     public static DateTime Deadline(Submission submission, int durationMinutes) =>
-        submission.StartedAtUtc.AddMinutes(durationMinutes);
+        submission.StartedAtUtc.AddMinutes(durationMinutes).AddSeconds(submission.ExtraTimeSeconds);
 
     public static bool IsExpired(Submission submission, int durationMinutes, DateTime now) =>
         now >= Deadline(submission, durationMinutes);

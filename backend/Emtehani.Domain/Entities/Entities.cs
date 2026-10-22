@@ -6,7 +6,12 @@ public sealed class AppUser {
 public sealed class Exam {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid TeacherId {get;set;} public string Title {get;set;}=""; public string? Description {get;set;}
  public string JoinCode {get;set;}=""; public int DurationMinutes {get;set;}=30; public int MaxAttempts {get;set;}=1; public bool AllowResumeAfterFocusLoss {get;set;}=true; public bool IsPublished {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
- public List<Question> Questions {get;set;}=[];
+ public string Status {get;set;}="Draft"; public DateTime? ScheduledAtUtc {get;set;} public DateTime? PausedAtUtc {get;set;}
+ public List<Question> Questions {get;set;}=[]; public List<ExamParticipant> Participants {get;set;}=[];
+}
+public sealed class ExamParticipant {
+ public Guid Id {get;set;}=Guid.NewGuid(); public Guid ExamId {get;set;} public Exam? Exam {get;set;} public Guid StudentId {get;set;} public AppUser? Student {get;set;}
+ public string Code {get;set;}=""; public string Status {get;set;}="Invited"; public DateTime? JoinedAtUtc {get;set;} public DateTime? LastSeenAtUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
 }
 public sealed class Question {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid ExamId {get;set;} public Exam? Exam {get;set;} public string Text {get;set;}="";
@@ -15,7 +20,7 @@ public sealed class Question {
 public sealed class Submission {
  public AppUser? Student {get;set;} public Exam? Exam {get;set;} public Guid Id {get;set;}=Guid.NewGuid(); public Guid ExamId {get;set;} public Guid StudentId {get;set;} public DateTime StartedAtUtc {get;set;}=DateTime.UtcNow;
  public DateTime? SubmittedAtUtc {get;set;} public decimal Score {get;set;} public decimal MaxScore {get;set;} public string Status {get;set;}="InProgress";
- public bool FocusLossDetected {get;set;} public int FocusLossCount {get;set;} public int CopyAttemptCount {get;set;} public int ScreenshotAttemptCount {get;set;} public int AttemptNumber {get;set;}=1; public bool IsExceptionAttempt {get;set;} public List<SubmissionAnswer> Answers {get;set;}=[];
+ public bool FocusLossDetected {get;set;} public int FocusLossCount {get;set;} public int CopyAttemptCount {get;set;} public int ScreenshotAttemptCount {get;set;} public int AttemptNumber {get;set;}=1; public bool IsExceptionAttempt {get;set;} public int ExtraTimeSeconds {get;set;} public List<SubmissionAnswer> Answers {get;set;}=[];
 }
 public sealed class SubmissionAnswer {
  public Question? Question {get;set;} public Guid Id {get;set;}=Guid.NewGuid(); public Guid SubmissionId {get;set;} public Submission? Submission {get;set;} public Guid QuestionId {get;set;}

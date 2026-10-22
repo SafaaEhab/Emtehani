@@ -1,0 +1,81 @@
+using Microsoft.EntityFrameworkCore;
+
+namespace Emtehani.Infrastructure.Persistence;
+
+public static class ExamWorkflowSchema
+{
+    public static async Task EnsureAsync(AppDbContext db, CancellationToken cancellationToken = default)
+    {
+        if (db.Database.IsSqlServer())
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Exams', 'Status') IS NULL
+                    ALTER TABLE [Exams] ADD [Status] nvarchar(24) NOT NULL CONSTRAINT [DF_Exams_Status] DEFAULT N'Draft';
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Exams', 'ScheduledAtUtc') IS NULL
+                    ALTER TABLE [Exams] ADD [ScheduledAtUtc] datetime2 NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Exams', 'PausedAtUtc') IS NULL
+                    ALTER TABLE [Exams] ADD [PausedAtUtc] datetime2 NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Submissions', 'ExtraTimeSeconds') IS NULL
+                    ALTER TABLE [Submissions] ADD [ExtraTimeSeconds] int NOT NULL CONSTRAINT [DF_Submissions_ExtraTimeSeconds] DEFAULT 0;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF OBJECT_ID(N'dbo.ExamParticipants', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [ExamParticipants] (
+                        [Id] uniqueidentifier NOT NULL,
+                        [ExamId] uniqueidentifier NOT NULL,
+                        [StudentId] uniqueidentifier NOT NULL,
+                        [Code] nvarchar(12) NOT NULL,
+                        [Status] nvarchar(24) NOT NULL,
+                        [JoinedAtUtc] datetime2 NULL,
+                        [LastSeenAtUtc] datetime2 NULL,
+                        [CreatedAtUtc] datetime2 NOT NULL,
+                        CONSTRAINT [PK_ExamParticipants] PRIMARY KEY ([Id]),
+                        CONSTRAINT [FK_ExamParticipants_Exams_ExamId] FOREIGN KEY ([ExamId]) REFERENCES [Exams] ([Id]) ON DELETE CASCADE,
+                        CONSTRAINT [FK_ExamParticipants_Users_StudentId] FOREIGN KEY ([StudentId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+                    );
+                    CREATE UNIQUE INDEX [IX_ExamParticipants_Code] ON [ExamParticipants] ([Code]);
+                    CREATE UNIQUE INDEX [IX_ExamParticipants_ExamId_StudentId] ON [ExamParticipants] ([ExamId], [StudentId]);
+                    CREATE INDEX [IX_ExamParticipants_StudentId] ON [ExamParticipants] ([StudentId]);
+                END;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                UPDATE [Exams] SET [Status] = N'Waiting' WHERE [IsPublished] = 1 AND [Status] = N'Draft';
+                """, cancellationToken);
+            return;
+        }
+
+        if (db.Database.IsNpgsql())
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "Status" character varying(24) NOT NULL DEFAULT 'Draft';
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "ScheduledAtUtc" timestamp with time zone NULL;
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "PausedAtUtc" timestamp with time zone NULL;
+                ALTER TABLE "Submissions" ADD COLUMN IF NOT EXISTS "ExtraTimeSeconds" integer NOT NULL DEFAULT 0;
+                CREATE TABLE IF NOT EXISTS "ExamParticipants" (
+                    "Id" uuid NOT NULL,
+                    "ExamId" uuid NOT NULL,
+                    "StudentId" uuid NOT NULL,
+                    "Code" character varying(12) NOT NULL,
+                    "Status" character varying(24) NOT NULL,
+                    "JoinedAtUtc" timestamp with time zone NULL,
+                    "LastSeenAtUtc" timestamp with time zone NULL,
+                    "CreatedAtUtc" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_ExamParticipants" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_ExamParticipants_Exams_ExamId" FOREIGN KEY ("ExamId") REFERENCES "Exams" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_ExamParticipants_Users_StudentId" FOREIGN KEY ("StudentId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_ExamParticipants_Code" ON "ExamParticipants" ("Code");
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_ExamParticipants_ExamId_StudentId" ON "ExamParticipants" ("ExamId", "StudentId");
+                CREATE INDEX IF NOT EXISTS "IX_ExamParticipants_StudentId" ON "ExamParticipants" ("StudentId");
+                UPDATE "Exams" SET "Status" = 'Waiting' WHERE "IsPublished" = TRUE AND "Status" = 'Draft';
+                """, cancellationToken);
+        }
+    }
+}
