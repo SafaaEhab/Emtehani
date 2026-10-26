@@ -130,23 +130,10 @@ public sealed class ProductionStartupFactory : ApiFactory
     }
 }
 
-public sealed class InviteCodeFactory : ApiFactory
-{
-    internal const string InviteCode = "TEST-INVITE-2026";
-
-    protected override void ConfigureTestConfiguration(IConfigurationBuilder config)
-    {
-        config.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["Auth:TeacherInviteCode"] = InviteCode
-        });
-    }
-}
-
 public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     [Fact]
-    public async Task TeacherRegistration_InDevelopmentWithoutConfiguredInviteCode_IsAllowed()
+    public async Task TeacherRegistration_WithoutInviteCode_Succeeds()
     {
         var client = factory.CreateClient();
         var email = $"teacher-open-{Guid.NewGuid():N}@example.test";
@@ -167,50 +154,7 @@ public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFac
     }
 
     [Fact]
-    public async Task TeacherRegistration_WithConfiguredInviteCode_RequiresAnExactValidCode()
-    {
-        using var inviteFactory = new InviteCodeFactory();
-        var client = inviteFactory.CreateClient();
-        var emailMissing = $"teacher-missing-{Guid.NewGuid():N}@example.test";
-        var missing = await client.PostAsJsonAsync("/api/auth/register", new
-        {
-            fullName = "مدرس بلا رمز",
-            email = emailMissing,
-            password = "Passw0rd!",
-            role = "Teacher"
-        });
-        Assert.Equal(HttpStatusCode.Forbidden, missing.StatusCode);
-
-        var emailInvalid = $"teacher-invalid-{Guid.NewGuid():N}@example.test";
-        var invalid = await client.PostAsJsonAsync("/api/auth/register", new
-        {
-            fullName = "مدرس برمز خاطئ",
-            email = emailInvalid,
-            password = "Passw0rd!",
-            role = "Teacher",
-            inviteCode = "WRONG-CODE"
-        });
-        Assert.Equal(HttpStatusCode.Forbidden, invalid.StatusCode);
-
-        var emailValid = $"teacher-valid-{Guid.NewGuid():N}@example.test";
-        var valid = await client.PostAsJsonAsync("/api/auth/register", new
-        {
-            fullName = "مدرس برمز صحيح",
-            email = emailValid,
-            password = "Passw0rd!",
-            role = "Teacher",
-            inviteCode = InviteCodeFactory.InviteCode
-        });
-        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
-
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email = emailValid, password = "Passw0rd!" });
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-        var auth = JsonNode.Parse(await login.Content.ReadAsStringAsync());
-        Assert.Equal("Teacher", auth!["role"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public async Task ProductionTeacherRegistration_WithoutConfiguredInviteCode_IsForbidden()
+    public async Task ProductionTeacherRegistration_WithoutInviteCode_Succeeds()
     {
         using var productionFactory = new ProductionStartupFactory();
         var client = productionFactory.CreateClient();
@@ -221,7 +165,7 @@ public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFac
             password = "Passw0rd!",
             role = "Teacher"
         });
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 namespace Emtehani.Application.Contracts;
 
-public record RegisterRequest(string FullName, string Email, string Password, string Role = "Student", string? InviteCode = null);
+public record RegisterRequest(string FullName, string Email, string Password, string Role = "Student");
 public record LoginRequest(string Email, string Password);
 public record AuthResponse(string Token, string FullName, string Email, string Role, DateTime ExpiresAtUtc, string? StudentCode = null);
 public record QuestionInput(string Text, string Type, string[]? Options, string? CorrectAnswer, decimal Points = 1);

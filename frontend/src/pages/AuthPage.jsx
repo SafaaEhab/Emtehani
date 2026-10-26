@@ -84,7 +84,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   const [error, setError] = useState('');
   const [resendBusy, setResendBusy] = useState(false);
   const [localNotice, setLocalNotice] = useState('');
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', inviteCode: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', password: '' });
   const [accepted, setAccepted] = useState(false);
 
   function update(field) {
@@ -114,7 +114,6 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
         email: form.email.trim(),
         password: form.password,
         role,
-        inviteCode: role === 'Teacher' ? form.inviteCode.trim() : undefined,
       });
       if (result?.registered) {
         setMode('login');
@@ -207,14 +206,6 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                     </div>
                   </Field>
 
-                  {role === 'Teacher' ? (
-                    <Field label="رمز دعوة المدرس" id="auth-invite" hint="أدخل الرمز الذي حصلت عليه من إدارة المنصة. اتركه فارغاً إذا كان التسجيل مفتوحاً.">
-                      <div className="relative">
-                        <ShieldCheck size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                        <Input id="auth-invite" autoComplete="off" dir="ltr" maxLength={128} value={form.inviteCode} onChange={update('inviteCode')} placeholder="INVITE-CODE" className="pr-10 text-left" />
-                      </div>
-                    </Field>
-                  ) : null}
                 </>
               ) : null}
 

@@ -391,19 +391,6 @@ app.MapPost("/api/auth/register", async (RegisterRequest req, AppDbContext db, E
 
   var email = req.Email.Trim().ToLowerInvariant();
   var role = string.Equals(req.Role, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Teacher" : "Student";
-  if (role == "Teacher")
-  {
-      var expectedInviteCode = builder.Configuration["Auth:TeacherInviteCode"];
-      if (string.IsNullOrWhiteSpace(expectedInviteCode))
-      {
-          if (!app.Environment.IsDevelopment())
-              return Results.Json(new { message = "تسجيل حسابات المدرسين غير متاح حالياً. تواصل مع إدارة المنصة." }, statusCode: StatusCodes.Status403Forbidden);
-      }
-      else if (string.IsNullOrWhiteSpace(req.InviteCode) || !FixedTimeEquals(req.InviteCode.Trim(), expectedInviteCode))
-      {
-          return Results.Json(new { message = "رمز دعوة المدرس غير صحيح." }, statusCode: StatusCodes.Status403Forbidden);
-      }
-  }
   if (await db.Users.AnyAsync(x => x.Email == email))
     return Results.Conflict(new { message = "البريد مستخدم بالفعل." });
 

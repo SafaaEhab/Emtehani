@@ -87,7 +87,6 @@ npm run test:e2e
 | `DATABASE_URL` أو `POSTGRES_URL` | نعم* | رابط PostgreSQL، مثل `postgres://user:password@host/db?sslmode=require` |
 | `ConnectionStrings__DefaultConnection` | بديل | اتصال SQL Server أو PostgreSQL إذا لم يُستخدم `DATABASE_URL` |
 | `Auth__AutoConfirmWithoutSmtp` | نعم | يجب أن يكون `false` في الإنتاج |
-| `Auth__TeacherInviteCode` | لتفعيل تسجيل المدرسين | رمز دعوة يتحقق منه الخادم؛ عند غيابه يُرفض تسجيل المدرسين الجدد في الإنتاج بـ`403`. لا تضع قيمته في Git |
 | `Email__From` | نعم | عنوان المرسل الموثوق |
 | `Email__SmtpHost` | نعم | مثل `smtp.gmail.com` |
 | `Email__SmtpPort` | نعم | عادة `587` |
@@ -139,7 +138,7 @@ pg_restore -h 127.0.0.1 -p 5432 -U postgres -d emtehani_restore_check --no-owner
 2. استخدم مفتاح JWT عشوائياً جديداً ولا تشاركه بين الإنتاج والتجربة.
 3. اضبط `FrontendOrigin` و`PublicApiUrl` بعنواني HTTPS الفعليين، دون مسار أو شرطة زائدة في الأصل.
 4. اضبط SMTP واختبر رسالة تأكيد فعلية，ثم تأكد أن `Auth__AutoConfirmWithoutSmtp=false`.
-5. تحقق من نجاح الإقلاع: سجّل مدرساً باستخدام `Auth__TeacherInviteCode`، أو تأكد من رفض تسجيل المدرسين بـ`403` عند عدم ضبط الرمز.
+5. تحقق من نجاح الإقلاع: سجّل مدرساً من صفحة التسجيل وتأكد من قبول الطلب دون رمز دعوة.
 6. تأكد أن `Admin__ResetEnabled=false` (افتراضي) ما لم تكن تحتاج إلى نقطة النهاية للإعادة الطارئة.
 7. خذ نسخة احتياطية من قاعدة البيانات，تحقق من استعادتها على بيئة معزولة，ثم راقب سجلات بدء التشغيل بعد النشر.
 8. نفذ اختباراً كاملاً：صحة الخدمة，تسجيل مدرس，تأكيد بريد، إنشاء امتحان، نشر，فتح، كود طالب，بدء，حفظ，تسليم، مراجعة مقال，تصدير. شغّل Playwright محلياً أو في CI قبل النشر.
