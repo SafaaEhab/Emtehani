@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowRight,
@@ -86,6 +86,19 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   const [localNotice, setLocalNotice] = useState('');
   const [form, setForm] = useState({ fullName: '', email: '', password: '' });
   const [accepted, setAccepted] = useState(false);
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    try {
+      const token = new URLSearchParams(window.location.search).get('resetToken');
+      if (token) {
+        setResetToken(token);
+        setMode('reset');
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -96,6 +109,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     setError('');
     clearNotice?.();
     setLocalNotice('');
+    if (next === 'login') { setResetToken(''); setNewPassword(''); setConfirmPassword(''); }
   }
 
   async function submit(event) {
@@ -103,6 +117,44 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     setError('');
     setLocalNotice('');
     clearNotice?.();
+    if (mode === 'forgot') {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
+      setBusy(true);
+      try {
+        const result = await request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: form.email.trim() }) });
+        if (result?.resetToken) {
+          setResetToken(result.resetToken);
+          setMode('reset');
+          setLocalNotice('بيئة تطوير: تم توليد رابط إعادة تعيين محلي. أدخل كلمة المرور الجديدة.');
+        } else {
+          setLocalNotice(result?.message || 'إذا كان البريد مسجلاً فسيصلك رابط لإعادة تعيين كلمة المرور.');
+        }
+      } catch (err) {
+        setError(err.message || 'تعذر إرسال رابط الاستعادة.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (mode === 'reset') {
+      if (!resetToken) return setError('رابط إعادة التعيين غير صالح. اطلب رابطاً جديداً.');
+      if (newPassword.length < 8 || newPassword.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
+      if (newPassword !== confirmPassword) return setError('كلمتا المرور غير متطابقتين.');
+      setBusy(true);
+      try {
+        const result = await request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: resetToken, password: newPassword }) });
+        setMode('login');
+        setResetToken('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setLocalNotice(result?.message || 'تم تغيير كلمة المرور. يمكنك تسجيل الدخول الآن.');
+      } catch (err) {
+        setError(err.message || 'تعذر تغيير كلمة المرور.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (mode === 'register' && form.fullName.trim().length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
     if (form.password.length < 8 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
@@ -164,20 +216,24 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
             <div className="mb-6">
               <div className="mb-3 inline-flex size-11 items-center justify-center rounded-[14px] bg-primary-soft text-primary"><LockKeyhole size={21} /></div>
               <h1 className="font-display text-[clamp(1.7rem,3vw,2.15rem)] font-semibold leading-tight tracking-[-0.045em] text-ink">
-                {mode === 'login' ? 'أهلاً بعودتك.' : 'أنشئ حسابك في دقيقة.'}
+                {mode === 'login' ? 'أهلاً بعودتك.' : mode === 'register' ? 'أنشئ حسابك في دقيقة.' : mode === 'forgot' ? 'استعادة كلمة المرور.' : 'تعيين كلمة مرور جديدة.'}
               </h1>
               <p className="mt-1.5 text-[13.5px] leading-6 text-muted">
-                {mode === 'login' ? 'سجّل الدخول لمتابعة امتحاناتك أو إدارة جلستك القادمة.' : 'اختر نوع الحساب، وأدخل بياناتك، وستكون جاهزاً للبدء.'}
+                {mode === 'login' ? 'سجّل الدخول لمتابعة امتحاناتك أو إدارة جلستك القادمة.' : mode === 'register' ? 'اختر نوع الحساب، وأدخل بياناتك، وستكون جاهزاً للبدء.' : mode === 'forgot' ? 'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين إذا كان الحساب موجوداً.' : 'اختر كلمة مرور جديدة لحسابك.'}
               </p>
             </div>
 
-            <Segmented
-              value={mode}
-              onChange={switchMode}
-              ariaLabel="طريقة الدخول"
-              className="mb-5 w-full"
-              options={[{ value: 'login', label: 'تسجيل الدخول' }, { value: 'register', label: 'حساب جديد' }]}
-            />
+            {mode === 'login' || mode === 'register' ? (
+              <Segmented
+                value={mode}
+                onChange={switchMode}
+                ariaLabel="طريقة الدخول"
+                className="mb-5 w-full"
+                options={[{ value: 'login', label: 'تسجيل الدخول' }, { value: 'register', label: 'حساب جديد' }]}
+              />
+            ) : (
+              <button type="button" onClick={() => switchMode('login')} className="mb-5 inline-flex min-h-9 items-center gap-1.5 text-[11.5px] font-bold text-muted transition hover:text-primary"><ArrowRight size={14} />العودة لتسجيل الدخول</button>
+            )}
 
             {activeNotice ? <Alert tone={notice ? noticeTone : 'success'} className="mb-4" onClose={() => { clearNotice?.(); setLocalNotice(''); }}>{activeNotice}</Alert> : null}
             {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
@@ -209,46 +265,64 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                 </>
               ) : null}
 
-              <Field label="البريد الإلكتروني" id="auth-email">
-                <div className="relative">
-                  <Mail size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                  <Input id="auth-email" type="email" autoComplete="email" dir="ltr" maxLength={254} value={form.email} onChange={update('email')} placeholder="name@example.com" className="pr-10 text-left" />
-                </div>
-              </Field>
+              {mode !== 'reset' ? (
+                <Field label="البريد الإلكتروني" id="auth-email">
+                  <div className="relative">
+                    <Mail size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
+                    <Input id="auth-email" type="email" autoComplete="email" dir="ltr" maxLength={254} value={form.email} onChange={update('email')} placeholder="name@example.com" className="pr-10 text-left" />
+                  </div>
+                </Field>
+              ) : null}
 
-              <Field label="كلمة المرور" id="auth-password" hint={mode === 'register' ? '8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.' : undefined}>
-                <div className="relative">
-                  <LockKeyhole size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                  <Input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} value={form.password} onChange={update('password')} placeholder="••••••••" className="pl-10 pr-10" />
-                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-subtle transition hover:bg-surface-soft hover:text-ink" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </Field>
+              {mode === 'forgot' ? null : mode === 'reset' ? (
+                <>
+                  <Field label="كلمة المرور الجديدة" id="auth-new-password" hint="8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.">
+                    <Input id="auth-new-password" type="password" autoComplete="new-password" maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="••••••••" className="px-3.5" />
+                  </Field>
+                  <Field label="تأكيد كلمة المرور" id="auth-confirm-password">
+                    <Input id="auth-confirm-password" type="password" autoComplete="new-password" maxLength={128} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="••••••••" className="px-3.5" />
+                  </Field>
+                </>
+              ) : (
+                <Field label="كلمة المرور" id="auth-password" hint={mode === 'register' ? '8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.' : undefined}>
+                  <div className="relative">
+                    <LockKeyhole size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
+                    <Input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} value={form.password} onChange={update('password')} placeholder="••••••••" className="pl-10 pr-10" />
+                    <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-subtle transition hover:bg-surface-soft hover:text-ink" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </Field>
+              )}
 
               {mode === 'login' ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px]">
-                  <button type="button" onClick={resend} disabled={resendBusy} className="min-h-9 font-bold text-primary transition hover:text-primary-strong disabled:opacity-60">{resendBusy ? 'جارٍ الإرسال...' : 'إعادة إرسال رابط التفعيل'}</button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="button" onClick={resend} disabled={resendBusy} className="min-h-9 font-bold text-primary transition hover:text-primary-strong disabled:opacity-60">{resendBusy ? 'جارٍ الإرسال...' : 'إعادة إرسال رابط التفعيل'}</button>
+                    <button type="button" onClick={() => switchMode('forgot')} className="min-h-9 font-bold text-muted transition hover:text-primary">نسيت كلمة المرور؟</button>
+                  </div>
                   <span className="text-subtle">الدخول متاح للطلاب والمدرسين</span>
                 </div>
-              ) : (
+              ) : mode === 'register' ? (
                 <label className="flex items-start gap-2 text-[12px] leading-6 text-muted">
                   <input type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-1.5 size-4 accent-primary" />
                   <span>أوافق على استخدام المنصة لأغراض تعليمية، وعلى سياسة الخصوصية.</span>
                 </label>
-              )}
+              ) : null}
 
-              <Button type="submit" loading={busy} className="mt-1 w-full" size="lg" icon={mode === 'login' ? LockKeyhole : UserRound}>
-                {mode === 'login' ? 'تسجيل الدخول' : 'إنشاء الحساب'}
+              <Button type="submit" loading={busy} className="mt-1 w-full" size="lg" icon={mode === 'login' || mode === 'reset' ? LockKeyhole : mode === 'forgot' ? Mail : UserRound}>
+                {mode === 'login' ? 'تسجيل الدخول' : mode === 'register' ? 'إنشاء الحساب' : mode === 'forgot' ? 'إرسال رابط الاستعادة' : 'تعيين كلمة المرور'}
               </Button>
             </form>
 
-            <p className="mt-5 text-center text-[12px] text-muted">
-              {mode === 'login' ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}{' '}
-              <button type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')} className="font-extrabold text-primary hover:underline">
-                {mode === 'login' ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
-              </button>
-            </p>
+            {mode === 'login' || mode === 'register' ? (
+              <p className="mt-5 text-center text-[12px] text-muted">
+                {mode === 'login' ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}{' '}
+                <button type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')} className="font-extrabold text-primary hover:underline">
+                  {mode === 'login' ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
+                </button>
+              </p>
+            ) : null}
 
             <div className="mt-7 flex items-center justify-center gap-1.5 text-[10.5px] text-subtle">
               <ShieldCheck size={11} />

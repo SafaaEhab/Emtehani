@@ -1082,4 +1082,33 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var afterAccept = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
         Assert.NotEmpty(afterAccept!["items"]!.AsArray());
     }
+
+    [Fact]
+    public async Task ForgotPassword_ResetsPasswordAndInvalidatesTheOldOne()
+    {
+        var email = Email("reset-student");
+        var (_, auth) = await RegisterAndLogin(email, "Student", "طالب استعادة");
+        var client = factory.CreateClient();
+
+        var forgot = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+        Assert.Equal(HttpStatusCode.OK, forgot.StatusCode);
+        var forgotBody = await ReadJson(forgot);
+        var token = forgotBody["resetToken"]?.GetValue<string>();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var weak = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "short" });
+        Assert.Equal(HttpStatusCode.BadRequest, weak.StatusCode);
+
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "NewPassw0rd!" });
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+
+        var oldLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+        var newLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "NewPassw0rd!" });
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+        Assert.True(auth["studentCode"] != null);
+
+        var reused = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "AnotherPass1!" });
+        Assert.Equal(HttpStatusCode.BadRequest, reused.StatusCode);
+    }
 }

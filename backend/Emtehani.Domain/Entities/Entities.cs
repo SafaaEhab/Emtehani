@@ -1,7 +1,7 @@
 namespace Emtehani.Domain.Entities;
 public sealed class AppUser {
  public Guid Id {get;set;}=Guid.NewGuid(); public string FullName {get;set;}=""; public string Email {get;set;}="";
- public string PasswordHash {get;set;}=""; public string Role {get;set;}="Student"; public string StudentCode {get;set;}=""; public bool EmailConfirmed {get;set;} public string? EmailVerificationToken {get;set;} public DateTime? EmailVerificationExpiresUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
+ public string PasswordHash {get;set;}=""; public string Role {get;set;}="Student"; public string StudentCode {get;set;}=""; public bool EmailConfirmed {get;set;} public string? EmailVerificationToken {get;set;} public DateTime? EmailVerificationExpiresUtc {get;set;} public string? PasswordResetToken {get;set;} public DateTime? PasswordResetExpiresUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
 }
 public sealed class Exam {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid TeacherId {get;set;} public string Title {get;set;}=""; public string? Description {get;set;}

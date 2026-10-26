@@ -9,6 +9,8 @@ public record AnswerInput(Guid QuestionId, string AnswerText);
 public record SubmitRequest(List<AnswerInput> Answers, bool FocusLossDetected = false);
 public record EssayGradeRequest(decimal AwardedPoints, string? Feedback);
 public record ResendVerificationRequest(string Email);
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Token, string Password);
 public record SubmissionEventRequest(string Type);
 public record ExamStateRequest(string Action);
 public record StudentCodeRequest(string Code);

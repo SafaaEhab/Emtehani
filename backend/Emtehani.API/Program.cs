@@ -371,6 +371,27 @@ async Task<bool> SendVerificationEmail(AppUser user, string verifyToken)
         return false;
     }
 }
+async Task<bool> SendPasswordResetEmail(AppUser user, string resetToken)
+{
+    var smtpHost = builder.Configuration["Email:SmtpHost"];
+    if (string.IsNullOrWhiteSpace(smtpHost)) return false;
+    var resetUrl = $"{allowedOrigins[0]}/?resetToken={Uri.EscapeDataString(resetToken)}";
+    try
+    {
+        using var mail = new MailMessage(builder.Configuration["Email:From"] ?? "no-reply@localhost", user.Email, "إعادة تعيين كلمة المرور - امتحاني",
+            $"<div dir='rtl' style='font-family:Arial'><h2>أهلاً {WebUtility.HtmlEncode(user.FullName)}</h2><p>لإعادة تعيين كلمة المرور، اضغط على الرابط التالي:</p><p><a href='{resetUrl}'>إعادة تعيين كلمة المرور</a></p><p>الرابط صالح لمدة ساعة واحدة. إذا لم تطلب ذلك، تجاهل الرسالة.</p></div>") { IsBodyHtml = true };
+        using var client = new SmtpClient(smtpHost, int.TryParse(builder.Configuration["Email:SmtpPort"], out var smtpPort) ? smtpPort : 587) { EnableSsl = bool.TryParse(builder.Configuration["Email:EnableSsl"], out var ssl) && ssl };
+        var username = builder.Configuration["Email:Username"]; var password = builder.Configuration["Email:Password"];
+        if (!string.IsNullOrWhiteSpace(username)) client.Credentials = new NetworkCredential(username, password);
+        await client.SendMailAsync(mail);
+        return true;
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Password reset email delivery failed.");
+        return false;
+    }
+}
 async Task FinalizeExpired(AppDbContext db)
 {
     const int FinalizeGraceMinutes = 5;
@@ -478,6 +499,38 @@ app.MapPost("/api/auth/resend-verification", async (ResendVerificationRequest re
         await SendVerificationEmail(user, token);
     }
     return Results.Ok(new { message });
+}).RequireRateLimiting("auth");
+app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest req, AppDbContext db) =>
+{
+    var generic = "إذا كان البريد مسجلاً فسيصلك رابط لإعادة تعيين كلمة المرور.";
+    if (req is null || string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
+        return Results.BadRequest(new { message = "أدخل بريداً إلكترونياً صحيحاً." });
+    var email = req.Email.Trim().ToLowerInvariant();
+    var user = await db.Users.FirstOrDefaultAsync(x => x.Email == email);
+    if (user is null) return Results.Ok(new { message = generic });
+    var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    user.PasswordResetToken = token;
+    user.PasswordResetExpiresUtc = DateTime.UtcNow.AddHours(1);
+    await db.SaveChangesAsync();
+    var sent = await SendPasswordResetEmail(user, token);
+    if (!sent && app.Environment.IsDevelopment())
+        return Results.Ok(new { message = generic, resetToken = token });
+    return Results.Ok(new { message = generic });
+}).RequireRateLimiting("auth");
+app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest req, AppDbContext db) =>
+{
+    if (req is null || string.IsNullOrWhiteSpace(req.Token) || string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 8 || req.Password.Length > 128)
+        return Results.BadRequest(new { message = "رابط إعادة التعيين غير صالح أو كلمة المرور غير مطابقة للشروط." });
+    var user = await db.Users.FirstOrDefaultAsync(x => x.PasswordResetToken == req.Token);
+    if (user is null || user.PasswordResetExpiresUtc < DateTime.UtcNow)
+        return Results.BadRequest(new { message = "رابط إعادة التعيين غير صالح أو منتهي الصلاحية. اطلب رابطاً جديداً." });
+    var salt = Salt();
+    user.PasswordHash = salt + ":" + Hash(req.Password, salt);
+    user.PasswordResetToken = null;
+    user.PasswordResetExpiresUtc = null;
+    await db.SaveChangesAsync();
+    await Audit(db, user.Id, "auth.password.reset", "AppUser", user.Id.ToString());
+    return Results.Ok(new { message = "تم تغيير كلمة المرور. يمكنك تسجيل الدخول الآن." });
 }).RequireRateLimiting("auth");
 app.MapPost("/api/auth/login", async (LoginRequest req, AppDbContext db, Emtehani.Application.Abstractions.ITokenService tokens) =>
 {

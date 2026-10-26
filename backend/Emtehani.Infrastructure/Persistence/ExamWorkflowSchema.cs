@@ -59,6 +59,10 @@ public static class ExamWorkflowSchema
             await db.Database.ExecuteSqlRawAsync("""
                 IF COL_LENGTH('dbo.Users', 'StudentCode') IS NULL
                     ALTER TABLE [Users] ADD [StudentCode] nvarchar(12) NOT NULL CONSTRAINT [DF_Users_StudentCode] DEFAULT N'';
+                IF COL_LENGTH('dbo.Users', 'PasswordResetToken') IS NULL
+                    ALTER TABLE [Users] ADD [PasswordResetToken] nvarchar(128) NULL;
+                IF COL_LENGTH('dbo.Users', 'PasswordResetExpiresUtc') IS NULL
+                    ALTER TABLE [Users] ADD [PasswordResetExpiresUtc] datetime2 NULL;
                 """, cancellationToken);
             await db.Database.ExecuteSqlRawAsync("""
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name] = N'IX_Users_StudentCode' AND [object_id] = OBJECT_ID(N'dbo.Users'))
@@ -119,6 +123,8 @@ public static class ExamWorkflowSchema
         {
             await db.Database.ExecuteSqlRawAsync("""
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "StudentCode" character varying(12) NOT NULL DEFAULT '';
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "PasswordResetToken" character varying(128) NULL;
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "PasswordResetExpiresUtc" timestamp with time zone NULL;
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_StudentCode" ON "Users" ("StudentCode") WHERE "StudentCode" <> '';
                 CREATE TABLE IF NOT EXISTS "ExamParticipants" (
                     "Id" uuid NOT NULL,
