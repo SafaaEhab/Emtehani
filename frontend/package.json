@@ -6,7 +6,9 @@
  "scripts": {
   "dev": "vite --host 0.0.0.0",
   "build": "vite build",
-  "preview": "vite preview --host 0.0.0.0"
+  "preview": "vite preview --host 0.0.0.0",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui"
  },
  "dependencies": {
   "@fontsource-variable/cairo": "^5.3.0",
@@ -19,6 +21,7 @@
   "tailwindcss": "^4.3.3"
  },
  "devDependencies": {
+  "@playwright/test": "^1.56.1",
   "@vitejs/plugin-react": "6.1.2",
   "vite": "8.3.4"
  },

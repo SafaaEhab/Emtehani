@@ -30,7 +30,6 @@ import {
   Button,
   Card,
   Checkbox,
-  CopyChip,
   Field,
   IconButton,
   Input,
@@ -106,25 +105,25 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
         <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary-soft text-primary"><TypeIcon size={17} /></span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-extrabold text-primary">السؤال {formatNumber(index + 1)}</span>
+            <span className="text-[11px] font-extrabold text-primary">السؤال {formatNumber(index + 1)}</span>
             <Badge tone="neutral">{meta.label}</Badge>
           </div>
-          <p className="mt-0.5 text-[9px] text-subtle">{meta.note}</p>
+          <p className="mt-1 text-[10.5px] text-subtle">{meta.note}</p>
         </div>
         <div className="flex items-center gap-0.5">
-          <IconButton label="تحريك لأعلى" onClick={() => onMove(-1)} disabled={index === 0} className="size-7"><ArrowUp size={12} /></IconButton>
-          <IconButton label="تحريك لأسفل" onClick={() => onMove(1)} disabled={index === total - 1} className="size-7"><ArrowDown size={12} /></IconButton>
-          <IconButton label="حذف السؤال" onClick={onRemove} disabled={total <= 1} className="size-7 hover:border-danger/30 hover:bg-danger-soft hover:text-danger"><Trash2 size={12} /></IconButton>
+          <IconButton label="تحريك لأعلى" onClick={() => onMove(-1)} disabled={index === 0} className="size-8"><ArrowUp size={13} /></IconButton>
+          <IconButton label="تحريك لأسفل" onClick={() => onMove(1)} disabled={index === total - 1} className="size-8"><ArrowDown size={13} /></IconButton>
+          <IconButton label="حذف السؤال" onClick={onRemove} disabled={total <= 1} className="size-8 hover:border-danger/30 hover:bg-danger-soft hover:text-danger"><Trash2 size={13} /></IconButton>
         </div>
       </div>
 
       <div className="grid gap-3.5 p-3.5 sm:p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_150px_100px]">
           <Field label="نص السؤال" id={`${question.id}-text`}>
-            <Textarea id={`${question.id}-text`} value={question.text} onChange={(event) => patch({ text: event.target.value })} placeholder="اكتب السؤال هنا بوضوح..." className="min-h-20 text-[12px]" />
+            <Textarea id={`${question.id}-text`} value={question.text} onChange={(event) => patch({ text: event.target.value })} placeholder="اكتب السؤال هنا بوضوح..." className="min-h-20 text-[14px]" />
           </Field>
           <Field label="نوع السؤال" id={`${question.id}-type`}>
-            <Select id={`${question.id}-type`} value={question.type} onChange={(event) => changeType(event.target.value)} className="text-[11px]">
+            <Select id={`${question.id}-type`} value={question.type} onChange={(event) => changeType(event.target.value)} className="text-[13px]">
               {questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
             </Select>
           </Field>
@@ -136,8 +135,8 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
         {question.type === 'MultipleChoice' ? (
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-bold text-ink">الخيارات <span className="font-normal text-subtle">(اختر الإجابة الصحيحة)</span></p>
-              <button type="button" onClick={() => patch({ options: [...question.options, ''] })} disabled={question.options.length >= 6} className="text-[9.5px] font-bold text-primary disabled:opacity-40">+ إضافة خيار</button>
+              <p className="text-[12.5px] font-bold text-ink">الخيارات <span className="font-normal text-subtle">(اختر الإجابة الصحيحة)</span></p>
+              <button type="button" onClick={() => patch({ options: [...question.options, ''] })} disabled={question.options.length >= 6} className="min-h-8 text-[11.5px] font-bold text-primary disabled:opacity-40">+ إضافة خيار</button>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {question.options.map((option, optionIndex) => (
@@ -146,17 +145,17 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
                     type="button"
                     onClick={() => option.trim() && patch({ correctAnswer: option })}
                     aria-label={`تحديد الخيار ${optionIndex + 1} كإجابة صحيحة`}
-                    className={cn('grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold transition', question.correctAnswer === option && option ? 'border-emerald bg-emerald text-white' : 'border-line-strong bg-surface text-muted')}
+                    className={cn('grid size-6 shrink-0 place-items-center rounded-full border text-[10px] font-bold transition', question.correctAnswer === option && option ? 'border-emerald bg-emerald text-white' : 'border-line-strong bg-surface text-muted')}
                   >
-                    {question.correctAnswer === option && option ? <Check size={10} /> : optionIndex + 1}
+                    {question.correctAnswer === option && option ? <Check size={11} /> : optionIndex + 1}
                   </button>
                   <input
                     value={option}
                     onChange={(event) => updateOption(optionIndex, event.target.value)}
                     placeholder={`الخيار ${optionIndex + 1}`}
-                    className="h-7 min-w-0 flex-1 bg-transparent text-[11px] text-ink outline-none placeholder:text-subtle"
+                    className="h-9 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-subtle"
                   />
-                  <button type="button" onClick={() => removeOption(optionIndex)} disabled={question.options.length <= 2} className="text-subtle transition hover:text-danger disabled:opacity-25" aria-label="حذف الخيار"><X size={12} /></button>
+                  <button type="button" onClick={() => removeOption(optionIndex)} disabled={question.options.length <= 2} className="grid size-8 shrink-0 place-items-center text-subtle transition hover:text-danger disabled:opacity-25" aria-label="حذف الخيار"><X size={14} /></button>
                 </div>
               ))}
             </div>
@@ -165,10 +164,10 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
 
         {question.type === 'TrueFalse' ? (
           <div>
-            <p className="mb-2 text-[11px] font-bold text-ink">الإجابة الصحيحة</p>
+            <p className="mb-2 text-[12.5px] font-bold text-ink">الإجابة الصحيحة</p>
             <div className="grid grid-cols-2 gap-2">
               {['صح', 'خطأ'].map((value) => (
-                <button key={value} type="button" onClick={() => patch({ correctAnswer: value })} className={cn('flex items-center justify-center gap-2 rounded-[11px] border px-3 py-2.5 text-[11.5px] font-bold transition', question.correctAnswer === value ? value === 'صح' ? 'border-emerald bg-emerald-soft text-emerald' : 'border-danger bg-danger-soft text-danger' : 'border-line bg-surface-soft text-muted hover:border-line-strong')}>
+                <button key={value} type="button" onClick={() => patch({ correctAnswer: value })} className={cn('flex min-h-12 items-center justify-center gap-2 rounded-[11px] border px-3 py-2.5 text-[13px] font-bold transition', question.correctAnswer === value ? value === 'صح' ? 'border-emerald bg-emerald-soft text-emerald' : 'border-danger bg-danger-soft text-danger' : 'border-line bg-surface-soft text-muted hover:border-line-strong')}>
                   <span className={cn('grid size-4 place-items-center rounded-full border', question.correctAnswer === value ? 'border-current bg-current text-white' : 'border-line-strong')}>{question.correctAnswer === value ? <Check size={9} /> : null}</span>
                   {value}
                 </button>
@@ -184,7 +183,7 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
         ) : null}
 
         {question.type === 'Essay' ? (
-          <div className="flex items-center gap-2 rounded-[11px] border border-warning/20 bg-warning-soft px-3 py-2.5 text-[10px] leading-5 text-warning">
+          <div className="flex items-center gap-2 rounded-[11px] border border-warning/20 bg-warning-soft px-3 py-2.5 text-[12px] leading-6 text-warning">
             <Info size={14} className="shrink-0" />
             الأسئلة المقالية لا تُصحح تلقائياً. ستظهر في قائمة المراجعة اليدوية بعد تسليم الطالب.
           </div>
@@ -193,20 +192,20 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
         {question.type === 'Matching' ? (
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-bold text-ink">أزواج المطابقة <span className="font-normal text-subtle">(كل عنصر يقابل الإجابة المجاورة)</span></p>
-              <button type="button" onClick={() => patch({ pairs: [...question.pairs, { id: makeId(), left: '', right: '' }] })} disabled={question.pairs.length >= 8} className="text-[9.5px] font-bold text-primary disabled:opacity-40">+ إضافة زوج</button>
+              <p className="text-[12.5px] font-bold text-ink">أزواج المطابقة <span className="font-normal text-subtle">(كل عنصر يقابل الإجابة المجاورة)</span></p>
+              <button type="button" onClick={() => patch({ pairs: [...question.pairs, { id: makeId(), left: '', right: '' }] })} disabled={question.pairs.length >= 8} className="min-h-8 text-[11.5px] font-bold text-primary disabled:opacity-40">+ إضافة زوج</button>
             </div>
             <div className="grid gap-2">
-              <div className="grid grid-cols-[1fr_1fr_28px] gap-2 px-1 text-[8.5px] font-bold text-subtle"><span>العنصر</span><span>ما يقابله</span><span /></div>
+              <div className="grid grid-cols-[1fr_1fr_36px] gap-2 px-1 text-[10.5px] font-bold text-subtle"><span>العنصر</span><span>ما يقابله</span><span /></div>
               {question.pairs.map((pair, pairIndex) => (
-                <div key={pair.id} className="grid grid-cols-[1fr_1fr_28px] items-center gap-2">
-                  <input value={pair.left} onChange={(event) => updatePair(pair.id, 'left', event.target.value)} placeholder={`العنصر ${pairIndex + 1}`} className="h-9 rounded-[9px] border border-line bg-surface-soft px-2.5 text-[11px] outline-none focus:border-primary focus:bg-surface" />
-                  <input value={pair.right} onChange={(event) => updatePair(pair.id, 'right', event.target.value)} placeholder="الزوج المقابل" className="h-9 rounded-[9px] border border-line bg-surface-soft px-2.5 text-[11px] outline-none focus:border-primary focus:bg-surface" />
-                  <button type="button" onClick={() => patch({ pairs: question.pairs.filter((item) => item.id !== pair.id) })} disabled={question.pairs.length <= 2} className="grid size-7 place-items-center rounded-lg text-subtle hover:bg-danger-soft hover:text-danger disabled:opacity-25" aria-label="حذف الزوج"><X size={12} /></button>
+                <div key={pair.id} className="grid grid-cols-[1fr_1fr_36px] items-center gap-2">
+                  <input value={pair.left} onChange={(event) => updatePair(pair.id, 'left', event.target.value)} placeholder={`العنصر ${pairIndex + 1}`} className="h-10 rounded-[9px] border border-line bg-surface-soft px-2.5 text-[13px] outline-none focus:border-primary focus:bg-surface" />
+                  <input value={pair.right} onChange={(event) => updatePair(pair.id, 'right', event.target.value)} placeholder="الزوج المقابل" className="h-10 rounded-[9px] border border-line bg-surface-soft px-2.5 text-[13px] outline-none focus:border-primary focus:bg-surface" />
+                  <button type="button" onClick={() => patch({ pairs: question.pairs.filter((item) => item.id !== pair.id) })} disabled={question.pairs.length <= 2} className="grid size-9 place-items-center rounded-lg text-subtle hover:bg-danger-soft hover:text-danger disabled:opacity-25" aria-label="حذف الزوج"><X size={14} /></button>
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[9px] text-subtle">في اختبار الطالب، ستُعرض الإجابات بترتيب مختلف ليختار لكل عنصر ما يقابله.</p>
+            <p className="mt-2 text-[11px] leading-5 text-subtle">في اختبار الطالب، ستُعرض الإجابات بترتيب مختلف ليختار لكل عنصر ما يقابله.</p>
           </div>
         ) : null}
       </div>
@@ -320,8 +319,8 @@ export default function ExamForm({ token, onBack, onCreated }) {
 
   return (
     <div>
-      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى الامتحانات</button>
-      <PageHeader eyebrow="بناء جديد" title="أنشئ امتحاناً" description="أضف التفاصيل والأسئلة. بعد الحفظ يمكنك نشر الامتحان وتوليد أكواد الطلاب." />
+      <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-10 items-center gap-1.5 text-[12px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى الامتحانات</button>
+      <PageHeader eyebrow="بناء جديد" title="أنشئ امتحاناً" description="أضف التفاصيل والأسئلة. بعد الحفظ انشر الامتحان ثم افتح الجلسة — الطلاب يدخلون بأكوادهم الشخصية." />
 
       {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
 
@@ -330,7 +329,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
           <Card className="p-4 sm:p-5">
             <div className="mb-4 flex items-center gap-2.5">
               <span className="grid size-9 place-items-center rounded-[11px] bg-primary-soft text-primary"><FilePlus2 size={17} /></span>
-              <div><h2 className="font-display text-[14px] font-semibold text-ink">تفاصيل الامتحان</h2><p className="text-[9.5px] text-muted">ستظهر هذه المعلومات للطالب في غرفة الانتظار.</p></div>
+              <div><h2 className="font-display text-[15px] font-semibold text-ink">تفاصيل الامتحان</h2><p className="mt-0.5 text-[11.5px] text-muted">ستظهر هذه المعلومات للطالب في غرفة الانتظار.</p></div>
             </div>
             <div className="grid gap-3.5">
               <Field label="عنوان الامتحان" id="exam-title">
@@ -359,7 +358,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-[16px] font-semibold text-ink">الأسئلة</h2>
-              <p className="text-[10.5px] text-muted">{formatNumber(questions.length)} سؤال · {formatNumber(totalPoints)} درجة</p>
+              <p className="mt-1 text-[12px] text-muted">{formatNumber(questions.length)} سؤال · {formatNumber(totalPoints)} درجة</p>
             </div>
             <Badge tone="primary">{formatDuration(durationMinutes || 0)}</Badge>
           </div>
@@ -378,14 +377,14 @@ export default function ExamForm({ token, onBack, onCreated }) {
             ))}
           </AnimatePresence>
 
-          <button type="button" onClick={() => setTypePicker(true)} className="flex items-center justify-center gap-2 rounded-card border border-dashed border-line-strong bg-surface/50 py-4 text-[11.5px] font-bold text-muted transition hover:border-primary/40 hover:bg-primary-soft/40 hover:text-primary">
+          <button type="button" onClick={() => setTypePicker(true)} className="flex min-h-14 items-center justify-center gap-2 rounded-card border border-dashed border-line-strong bg-surface/50 py-4 text-[13px] font-bold text-muted transition hover:border-primary/40 hover:bg-primary-soft/40 hover:text-primary">
             <Plus size={16} /> إضافة سؤال جديد
           </button>
         </div>
 
         <aside className="grid content-start gap-3 xl:sticky xl:top-[90px]">
           <Card className="p-4">
-            <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[13.5px] font-semibold text-ink">ملخص الامتحان</h3><Sparkles size={15} className="text-primary" /></div>
+            <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[14px] font-semibold text-ink">ملخص الامتحان</h3><Sparkles size={15} className="text-primary" /></div>
             <dl className="grid gap-2">
               {[
                 ['العنوان', title || 'بدون عنوان'],
@@ -395,21 +394,21 @@ export default function ExamForm({ token, onBack, onCreated }) {
                 ['المحاولات', `${formatNumber(maxAttempts)} محاولة`],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-2 border-b border-line pb-2 last:border-0 last:pb-0">
-                  <dt className="text-[9.5px] text-muted">{label}</dt>
-                  <dd className="max-w-[160px] truncate text-left text-[10px] font-bold text-ink">{value}</dd>
+                  <dt className="text-[11.5px] text-muted">{label}</dt>
+                  <dd className="max-w-[160px] truncate text-left text-[12px] font-bold text-ink">{value}</dd>
                 </div>
               ))}
             </dl>
-            <div className="mt-3 rounded-[11px] bg-surface-soft p-2.5 text-[9px] leading-5 text-muted">
-              <span className="mb-1 flex items-center gap-1 font-bold text-ink"><Info size={11} className="text-primary" />بعد الحفظ</span>
-              سيُحفظ الامتحان كمسودة. انشره ثم ولّد أكواد الطلاب من صفحة الإدارة.
+            <div className="mt-3 rounded-[11px] bg-surface-soft p-3 text-[11px] leading-5 text-muted">
+              <span className="mb-1 flex items-center gap-1 font-bold text-ink"><Info size={12} className="text-primary" />بعد الحفظ</span>
+              سيُحفظ الامتحان كمسودة. انشره ثم افتح الجلسة من صفحة الإدارة، وسيحضر الطلاب بأكوادهم الشخصية.
             </div>
             <Button type="submit" loading={busy} icon={Save} className="mt-3 w-full">حفظ الامتحان</Button>
           </Card>
 
           <Card className="p-4">
-            <h3 className="text-[11px] font-bold text-ink">نصائح سريعة</h3>
-            <ul className="mt-2 grid gap-2 text-[9.5px] leading-5 text-muted">
+            <h3 className="text-[12.5px] font-bold text-ink">نصائح سريعة</h3>
+            <ul className="mt-2 grid gap-2 text-[11.5px] leading-5 text-muted">
               <li className="flex gap-1.5"><CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald" />اجعل عنوان الامتحان واضحاً ومحدداً.</li>
               <li className="flex gap-1.5"><CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald" />وزّع الدرجات بما يعكس أهمية كل سؤال.</li>
               <li className="flex gap-1.5"><CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald" />راجع الأسئلة المقالية يدوياً بعد التسليم.</li>
@@ -430,7 +429,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
           {questionTypes.map((type) => (
             <button key={type.value} type="button" onClick={() => addQuestion(type.value)} className="flex items-start gap-3 rounded-[13px] border border-line bg-surface-soft p-3.5 text-right transition hover:border-primary/40 hover:bg-primary-soft/40">
               <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-surface text-primary shadow-sm"><type.icon size={17} /></span>
-              <span><strong className="block text-[11.5px] text-ink">{type.label}</strong><span className="mt-0.5 block text-[9px] leading-4 text-muted">{type.note}</span></span>
+              <span><strong className="block text-[13px] text-ink">{type.label}</strong><span className="mt-0.5 block text-[10.5px] leading-5 text-muted">{type.note}</span></span>
             </button>
           ))}
         </div>
@@ -440,19 +439,19 @@ export default function ExamForm({ token, onBack, onCreated }) {
         open={Boolean(created)}
         onClose={() => onCreated(created)}
         title="تم حفظ الامتحان"
-        description="الامتحان محفوظ كمسودة. الخطوة التالية: انشره ثم ولّد كوداً لكل طالب."
+        description="الامتحان محفوظ كمسودة. لا توجد أكواد للامتحان: انشره ثم افتح الجلسة، وسيظهر لك الطلاب تلقائياً بأكوادهم الشخصية بعد دخولهم."
         icon={CheckCircle2}
         tone="success"
         footer={<Button size="sm" iconEnd={ArrowLeft} onClick={() => onCreated(created)}>إدارة الامتحان</Button>}
       >
         <div className="rounded-[13px] border border-line bg-surface-soft p-3.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold text-muted">كود الجلسة العام</span>
-            <CopyChip value={created?.joinCode || '------'} />
+            <span className="text-[11.5px] font-bold text-muted">الخطوة التالية</span>
+            <span className="text-[11px] text-primary">انشر ثم افتح الجلسة</span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
-            <span className="text-[10px] font-bold text-muted">أكواد الطلاب</span>
-            <span className="text-[9.5px] text-primary">تُولّد من صفحة الإدارة</span>
+            <span className="text-[11.5px] font-bold text-muted">الطلاب</span>
+            <span className="text-[11px] text-primary">يدخلون بأكوادهم الشخصية</span>
           </div>
         </div>
       </Modal>

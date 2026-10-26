@@ -1,4 +1,5 @@
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -9,8 +10,8 @@
   --app-surface-soft: #f8fafc;
   --app-surface-raised: #ffffff;
   --app-ink: #0f172a;
-  --app-muted: #64748b;
-  --app-subtle: #94a3b8;
+  --app-muted: #475569;
+  --app-subtle: #64748b;
   --app-line: #e2e8f0;
   --app-line-strong: #cbd5e1;
   --app-primary: #4f46e5;
@@ -18,11 +19,11 @@
   --app-primary-soft: #eef2ff;
   --app-blue: #2563eb;
   --app-blue-soft: #eff6ff;
-  --app-emerald: #10b981;
+  --app-emerald: #047857;
   --app-emerald-soft: #ecfdf5;
   --app-danger: #dc2626;
   --app-danger-soft: #fef2f2;
-  --app-warning: #d97706;
+  --app-warning: #b45309;
   --app-warning-soft: #fffbeb;
   --app-shadow: 0 24px 60px -36px rgba(15, 23, 42, .32);
   --app-shadow-soft: 0 12px 30px -24px rgba(15, 23, 42, .28);
@@ -35,8 +36,8 @@
   --app-surface-soft: #111a2e;
   --app-surface-raised: #131d31;
   --app-ink: #e7eefb;
-  --app-muted: #94a3b8;
-  --app-subtle: #64748b;
+  --app-muted: #a8b3c7;
+  --app-subtle: #8a97ac;
   --app-line: #1e293b;
   --app-line-strong: #334155;
   --app-primary: #818cf8;

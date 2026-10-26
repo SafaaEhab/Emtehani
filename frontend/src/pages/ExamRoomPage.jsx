@@ -78,13 +78,13 @@ function MatchingInput({ question, value, onChange }) {
   }
   return (
     <div className="grid gap-2">
-      <div className="hidden grid-cols-[1fr_1.2fr] gap-2 px-1 text-[8.5px] font-bold text-subtle sm:grid">
+      <div className="hidden grid-cols-[1fr_1.2fr] gap-2 px-1 text-[11px] font-bold text-subtle sm:grid">
         <span>العنصر</span><span>اختر ما يقابله</span>
       </div>
       {pairs.map((pair, index) => (
         <div key={`${pair.left}-${index}`} className="grid gap-1.5 rounded-[11px] border border-line bg-surface-soft p-2.5 sm:grid-cols-[1fr_1.2fr] sm:items-center sm:gap-2">
-          <span className="flex items-center gap-2 text-[11px] font-semibold text-ink"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary-soft text-[8px] font-bold text-primary">{formatNumber(index + 1)}</span>{pair.left}</span>
-          <select value={selected[index] ?? ''} onChange={(event) => choose(index, event.target.value)} className="h-9 w-full rounded-[9px] border border-line bg-surface px-2.5 text-[10.5px] text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft">
+          <span className="flex items-center gap-2 text-[13px] font-semibold text-ink"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">{formatNumber(index + 1)}</span>{pair.left}</span>
+          <select value={selected[index] ?? ''} onChange={(event) => choose(index, event.target.value)} aria-label={`اختر ما يقابل ${pair.left}`} className="h-10 w-full rounded-[9px] border border-line bg-surface px-2.5 text-[13px] text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft">
             <option value="">اختر الإجابة...</option>
             {order.map((optionIndex) => <option key={optionIndex} value={optionIndex}>{pairs[optionIndex]?.right}</option>)}
           </select>
@@ -96,28 +96,29 @@ function MatchingInput({ question, value, onChange }) {
 
 function QuestionField({ question, index, value, onChange }) {
   const id = `question-${question.id}`;
-  const common = 'w-full rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[12px] text-ink outline-none transition placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary-soft';
+  const inputId = `${id}-input`;
+  const common = 'w-full rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary-soft';
 
   return (
     <Card id={id} className="scroll-mt-28 overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-soft/50 px-4 py-3">
-        <span className="grid size-7 place-items-center rounded-[8px] bg-primary text-[10px] font-bold text-white">{formatNumber(index + 1)}</span>
+        <span className="grid size-8 place-items-center rounded-[8px] bg-primary text-[11px] font-bold text-white">{formatNumber(index + 1)}</span>
         <Badge tone="neutral">{typeLabels[question.type] || question.type}</Badge>
-        <span className="ms-auto flex items-center gap-1 text-[9.5px] text-muted"><span className="ui-number font-bold text-ink">{formatNumber(question.points)}</span> درجة</span>
+        <span className="ms-auto flex items-center gap-1 text-[11.5px] text-muted"><span className="ui-number font-bold text-ink">{formatNumber(question.points)}</span> درجة</span>
       </div>
 
       <fieldset className="p-4 sm:p-5">
         <legend className="sr-only">السؤال {index + 1}</legend>
-        <p className="text-[13px] font-semibold leading-7 text-ink">{question.text}</p>
+        <p className="text-[15px] font-semibold leading-8 text-ink">{question.text}</p>
 
         {question.type === 'MultipleChoice' ? (
           <div className="mt-4 grid gap-2">
             {(question.options || []).map((option, optionIndex) => {
               const selected = value === option;
               return (
-                <label key={`${option}-${optionIndex}`} className={cn('flex cursor-pointer items-center gap-2.5 rounded-[11px] border px-3 py-2.5 text-[11.5px] transition', selected ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface-soft text-ink hover:border-line-strong')}>
+                <label key={`${option}-${optionIndex}`} className={cn('flex min-h-12 cursor-pointer items-center gap-3 rounded-[11px] border px-3.5 py-3 text-[14px] leading-6 transition', selected ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface-soft text-ink hover:border-line-strong')}>
                   <input type="radio" name={id} value={option} checked={selected} onChange={() => onChange(option)} className="sr-only" />
-                  <span className={cn('grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold', selected ? 'border-primary bg-primary text-white' : 'border-line-strong bg-surface text-muted')}>{selected ? <Check size={10} /> : optionIndex + 1}</span>
+                  <span className={cn('grid size-6 shrink-0 place-items-center rounded-full border text-[10.5px] font-bold', selected ? 'border-primary bg-primary text-white' : 'border-line-strong bg-surface text-muted')}>{selected ? <Check size={12} /> : optionIndex + 1}</span>
                   <span className="flex-1">{option}</span>
                 </label>
               );
@@ -130,7 +131,7 @@ function QuestionField({ question, index, value, onChange }) {
             {['صح', 'خطأ'].map((option) => {
               const selected = value === option;
               return (
-                <button key={option} type="button" onClick={() => onChange(option)} aria-pressed={selected} className={cn('flex h-12 items-center justify-center gap-2 rounded-[11px] border text-[12px] font-bold transition', selected ? option === 'صح' ? 'border-emerald bg-emerald-soft text-emerald' : 'border-danger bg-danger-soft text-danger' : 'border-line bg-surface-soft text-muted hover:border-line-strong')}>
+                <button key={option} type="button" onClick={() => onChange(option)} aria-pressed={selected} className={cn('flex h-14 items-center justify-center gap-2 rounded-[11px] border text-[14px] font-bold transition', selected ? option === 'صح' ? 'border-emerald bg-emerald-soft text-emerald' : 'border-danger bg-danger-soft text-danger' : 'border-line bg-surface-soft text-muted hover:border-line-strong')}>
                   <span className={cn('grid size-4 place-items-center rounded-full border', selected ? 'border-current bg-current text-white' : 'border-line-strong')}>{selected ? <Check size={9} /> : null}</span>
                   {option}
                 </button>
@@ -140,18 +141,18 @@ function QuestionField({ question, index, value, onChange }) {
         ) : null}
 
         {question.type === 'FillBlank' ? (
-          <div className="mt-4"><label htmlFor={id} className="sr-only">الإجابة</label><input id={id} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب الإجابة هنا..." className={common} /></div>
+          <div className="mt-4"><label htmlFor={inputId} className="sr-only">الإجابة</label><input id={inputId} maxLength={10000} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب الإجابة هنا..." className={common} /></div>
         ) : null}
 
         {question.type === 'ShortAnswer' ? (
-          <div className="mt-4"><label htmlFor={id} className="sr-only">الإجابة القصيرة</label><textarea id={id} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب إجابتك القصيرة..." rows={3} className={cn(common, 'min-h-20 resize-y')} /></div>
+          <div className="mt-4"><label htmlFor={inputId} className="sr-only">الإجابة القصيرة</label><textarea id={inputId} maxLength={10000} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب إجابتك القصيرة..." rows={3} className={cn(common, 'min-h-20 resize-y')} /></div>
         ) : null}
 
         {question.type === 'Essay' ? (
           <div className="mt-4">
-            <label htmlFor={id} className="sr-only">الإجابة المقالية</label>
-            <textarea id={id} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب إجابتك بالتفصيل..." rows={8} className={cn(common, 'min-h-40 resize-y leading-7')} />
-            <p className="mt-1.5 text-[9px] text-subtle">تُصحح الإجابات المقالية يدوياً من قبل المدرس.</p>
+            <label htmlFor={inputId} className="sr-only">الإجابة المقالية</label>
+            <textarea id={inputId} maxLength={10000} value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="اكتب إجابتك بالتفصيل..." rows={8} className={cn(common, 'min-h-40 resize-y leading-7')} />
+            <p className="mt-1.5 text-[11.5px] text-subtle">تُصحح الإجابات المقالية يدوياً من قبل المدرس.</p>
           </div>
         ) : null}
 
@@ -184,6 +185,7 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const answersRef = useRef(answers);
+  const answerVersionRef = useRef(0);
   const dirtyRef = useRef(false);
   const focusLossRef = useRef(false);
   const submittedRef = useRef(false);
@@ -202,6 +204,7 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
       try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore storage limits */ }
       return next;
     });
+    answerVersionRef.current += 1;
     dirtyRef.current = true;
     setSaveState('dirty');
   }
@@ -212,18 +215,22 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
     if (!force && !dirtyRef.current) return true;
     savingRef.current = true;
     setSaveState('saving');
+    const version = answerVersionRef.current;
+    const snapshot = answersRef.current;
     try {
       await request(`/api/submissions/${submissionId}/answers`, {
         token,
         method: 'PUT',
         body: JSON.stringify({
-          answers: Object.entries(answersRef.current).map(([questionId, answerText]) => ({ questionId, answerText: String(answerText) })),
+          answers: Object.entries(snapshot).map(([questionId, answerText]) => ({ questionId, answerText: String(answerText) })),
           focusLossDetected: focusLossRef.current,
         }),
       });
-      dirtyRef.current = false;
-      setSaveState('saved');
-      setError('');
+      if (answerVersionRef.current === version) {
+        dirtyRef.current = false;
+        setSaveState('saved');
+        setError('');
+      } else setSaveState('dirty');
       return true;
     } catch (err) {
       setSaveState('error');
@@ -289,6 +296,15 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
   }, [remaining, paused, submit]);
 
   useEffect(() => {
+    if (remaining !== 0 || paused) return undefined;
+    // A failed auto-submit (network/server hiccup) is retried until the server confirms.
+    const retry = window.setInterval(() => {
+      if (!submittedRef.current) submit(true);
+    }, 10000);
+    return () => window.clearInterval(retry);
+  }, [remaining, paused, submit]);
+
+  useEffect(() => {
     const autosave = window.setInterval(() => {
       if (!paused && !submittedRef.current) save();
     }, 7000);
@@ -350,23 +366,23 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
       <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1280px] items-center gap-3 px-3 py-2.5 sm:px-5">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2"><Badge tone="emerald" dot>جلسة نشطة</Badge><span className="hidden text-[8.5px] text-subtle sm:inline">لا تغلق الصفحة</span></div>
-            <h1 className="mt-0.5 truncate font-display text-[13px] font-semibold text-ink sm:text-[14px]">{paper.examTitle}</h1>
+            <div className="flex items-center gap-2"><Badge tone="emerald" dot>جلسة نشطة</Badge><span className="hidden text-[10.5px] text-subtle sm:inline">لا تغلق الصفحة</span></div>
+            <h1 className="mt-0.5 truncate font-display text-[14px] font-semibold text-ink sm:text-[15px]">{paper.examTitle}</h1>
           </div>
           <div className={cn('flex items-center gap-2 rounded-[12px] border px-3 py-1.5', lowTime ? 'border-danger/30 bg-danger-soft text-danger' : 'border-line bg-surface-soft text-ink')}>
             <Clock3 size={15} />
             <div className="text-center">
               <strong className="ui-number block text-[15px] font-bold leading-none sm:text-[17px]">{formatTimer(remaining)}</strong>
-              <span className="mt-0.5 block text-[7.5px] font-semibold opacity-60">الوقت المتبقي</span>
+              <span className="mt-0.5 block text-[10px] font-semibold opacity-75">الوقت المتبقي</span>
             </div>
           </div>
           <Button size="sm" icon={Send} onClick={() => setConfirmOpen(true)} disabled={submitting || paused} className="hidden sm:inline-flex">تسليم</Button>
-          <button type="button" onClick={() => setConfirmOpen(true)} disabled={submitting || paused} className="grid size-9 place-items-center rounded-[10px] bg-primary text-white disabled:opacity-50 sm:hidden" aria-label="تسليم الامتحان"><Send size={15} /></button>
+          <button type="button" onClick={() => setConfirmOpen(true)} disabled={submitting || paused} className="grid size-10 place-items-center rounded-[10px] bg-primary text-white disabled:opacity-50 sm:hidden" aria-label="تسليم الامتحان"><Send size={16} /></button>
         </div>
         <div className="h-0.5 bg-surface-soft"><motion.div className="h-full bg-primary" initial={false} animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} /></div>
-        <div className="mx-auto flex max-w-[1280px] items-center justify-between px-3 py-1 text-[8.5px] text-subtle sm:px-5">
+        <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-2 px-3 py-1.5 text-[10.5px] text-subtle sm:px-5">
           <span>{formatNumber(answered)} من {formatNumber(questions.length)} سؤال تمت الإجابة</span>
-          <span className={cn('inline-flex items-center gap-1', saveState === 'error' ? 'text-danger' : saveState === 'saved' ? 'text-emerald' : 'text-warning')}><SaveIcon size={10} className={saveState === 'saving' ? 'animate-spin' : ''} />{saveLabel}</span>
+          <span role="status" aria-live="polite" className={cn('inline-flex items-center gap-1', saveState === 'error' ? 'text-danger' : saveState === 'saved' ? 'text-emerald' : 'text-warning')}><SaveIcon size={12} className={saveState === 'saving' ? 'animate-spin' : ''} />{saveLabel}</span>
         </div>
       </header>
 
@@ -378,7 +394,7 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
         {paper.allowResumeAfterFocusLoss === false ? <Alert tone="info" className="mb-4">مغادرة الصفحة قد تمنع استكمال هذه المحاولة وفق إعدادات المدرس. ابقَ في الصفحة حتى التسليم.</Alert> : null}
 
         <div className="mb-3 flex items-center justify-between gap-2 xl:hidden">
-          <p className="text-[10px] font-bold text-muted">الأسئلة</p>
+          <p className="text-[11.5px] font-bold text-muted">الأسئلة</p>
           <Button variant="secondary" size="xs" icon={ListChecks} onClick={() => setMobileNavOpen(true)}>خريطة الأسئلة</Button>
         </div>
 
@@ -391,29 +407,29 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
 
           <aside className="hidden xl:sticky xl:top-[112px] xl:block">
             <Card className="p-4">
-              <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[13px] font-semibold text-ink">خريطة الأسئلة</h3><Badge tone={answered === questions.length ? 'emerald' : 'neutral'}>{formatNumber(answered)}/{formatNumber(questions.length)}</Badge></div>
+              <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[14px] font-semibold text-ink">خريطة الأسئلة</h3><Badge tone={answered === questions.length ? 'emerald' : 'neutral'}>{formatNumber(answered)}/{formatNumber(questions.length)}</Badge></div>
               <div className="grid grid-cols-5 gap-1.5">
                 {questions.map((question, index) => {
                   const isAnswered = String(answers[question.id] || '').trim();
                   return (
-                    <button key={question.id} type="button" onClick={() => scrollToQuestion(question.id)} aria-label={`الانتقال إلى السؤال ${index + 1}`} className={cn('grid size-9 place-items-center rounded-[9px] border text-[10px] font-bold transition', isAnswered ? 'border-emerald/30 bg-emerald-soft text-emerald' : 'border-line bg-surface-soft text-muted hover:border-primary/40 hover:text-primary')}>{index + 1}</button>
+                    <button key={question.id} type="button" onClick={() => scrollToQuestion(question.id)} aria-label={`الانتقال إلى السؤال ${index + 1}`} className={cn('grid size-10 place-items-center rounded-[9px] border text-[12px] font-bold transition', isAnswered ? 'border-emerald/30 bg-emerald-soft text-emerald' : 'border-line bg-surface-soft text-muted hover:border-primary/40 hover:text-primary')}>{index + 1}</button>
                   );
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between text-[8.5px] text-subtle"><span className="flex items-center gap-1"><span className="size-2 rounded bg-emerald-soft" />تمت الإجابة</span><span className="flex items-center gap-1"><span className="size-2 rounded border border-line bg-surface" />بدون إجابة</span></div>
+              <div className="mt-3 flex items-center justify-between text-[10.5px] text-subtle"><span className="flex items-center gap-1"><span className="size-2 rounded bg-emerald-soft" />تمت الإجابة</span><span className="flex items-center gap-1"><span className="size-2 rounded border border-line bg-surface" />بدون إجابة</span></div>
               <div className="my-3 border-t border-line" />
-              <div className="rounded-[11px] bg-surface-soft p-2.5">
-                <p className="flex items-center gap-1 text-[9px] font-bold text-ink"><ShieldAlert size={11} className="text-warning" />تنبيه</p>
-                <p className="mt-1 text-[8.5px] leading-5 text-muted">الخروج من الصفحة أو محاولة النسخ يُسجل في تقرير المحاولة.</p>
+              <div className="rounded-[11px] bg-surface-soft p-3">
+                <p className="flex items-center gap-1 text-[11px] font-bold text-ink"><ShieldAlert size={12} className="text-warning" />تنبيه</p>
+                <p className="mt-1 text-[10.5px] leading-5 text-muted">الخروج من الصفحة أو محاولة النسخ يُسجل في تقرير المحاولة.</p>
               </div>
               <Button size="sm" icon={Send} className="mt-3 w-full" onClick={() => setConfirmOpen(true)} disabled={submitting || paused}>تسليم الامتحان</Button>
-              <button type="button" onClick={() => save(true)} className="mt-2 inline-flex w-full items-center justify-center gap-1 text-[9px] font-bold text-muted hover:text-primary"><Save size={11} />حفظ الآن</button>
+              <button type="button" onClick={() => save(true)} className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1 text-[11.5px] font-bold text-muted hover:text-primary"><Save size={12} />حفظ الآن</button>
             </Card>
           </aside>
         </div>
 
         <div className="mt-4 flex flex-col items-center justify-between gap-2 rounded-[13px] border border-line bg-surface p-3 sm:flex-row">
-          <span className="flex items-center gap-1.5 text-[9px] text-muted"><Info size={12} className="text-primary" />يُحفظ تقدمك تلقائياً. يمكنك التسليم قبل انتهاء الوقت.</span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-muted"><Info size={13} className="text-primary" />يُحفظ تقدمك تلقائياً. يمكنك التسليم قبل انتهاء الوقت.</span>
           <Button size="sm" icon={Send} onClick={() => setConfirmOpen(true)} disabled={submitting || paused}>تسليم الامتحان</Button>
         </div>
       </div>
@@ -422,14 +438,14 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
         {mobileNavOpen ? (
           <motion.div className="fixed inset-0 z-[70] flex items-end bg-[rgba(3,7,18,.5)] p-3 backdrop-blur-sm xl:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(event) => { if (event.target === event.currentTarget) setMobileNavOpen(false); }}>
             <motion.div className="w-full rounded-[20px] border border-line bg-surface p-4" initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}>
-              <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[14px] font-semibold text-ink">خريطة الأسئلة</h3><button type="button" onClick={() => setMobileNavOpen(false)} aria-label="إغلاق" className="text-muted"><X size={17} /></button></div>
+              <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-[15px] font-semibold text-ink">خريطة الأسئلة</h3><button type="button" onClick={() => setMobileNavOpen(false)} aria-label="إغلاق" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-soft"><X size={18} /></button></div>
               <div className="grid grid-cols-6 gap-1.5">
                 {questions.map((question, index) => {
                   const isAnswered = String(answers[question.id] || '').trim();
-                  return <button key={question.id} type="button" onClick={() => scrollToQuestion(question.id)} className={cn('grid h-9 place-items-center rounded-[8px] border text-[10px] font-bold', isAnswered ? 'border-emerald/30 bg-emerald-soft text-emerald' : 'border-line bg-surface-soft text-muted')}>{index + 1}</button>;
+                  return <button key={question.id} type="button" onClick={() => scrollToQuestion(question.id)} className={cn('grid h-10 place-items-center rounded-[8px] border text-[12px] font-bold', isAnswered ? 'border-emerald/30 bg-emerald-soft text-emerald' : 'border-line bg-surface-soft text-muted')}>{index + 1}</button>;
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between text-[8.5px] text-subtle"><span>{formatNumber(answered)} تمت الإجابة</span><span>{formatNumber(questions.length - answered)} متبقٍ</span></div>
+              <div className="mt-3 flex items-center justify-between text-[10.5px] text-subtle"><span>{formatNumber(answered)} تمت الإجابة</span><span>{formatNumber(questions.length - answered)} متبقٍ</span></div>
             </motion.div>
           </motion.div>
         ) : null}
@@ -442,8 +458,8 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
               <div className="mx-auto grid size-16 place-items-center rounded-full bg-warning-soft text-warning"><Pause size={28} /></div>
               <Badge tone="warning" className="mt-4">إيقاف مؤقت</Badge>
               <h2 className="mt-3 font-display text-[1.5rem] font-semibold tracking-[-0.04em] text-ink">أوقف المدرس الجلسة</h2>
-              <p className="mt-2 text-[11.5px] leading-7 text-muted">الوقت متوقف الآن لجميع الطلاب. لا تغلق الصفحة. ستعود تلقائياً عند استئناف المدرس للجلسة.</p>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-surface-soft px-3 py-1.5 text-[10px] font-bold text-muted"><TimerReset size={13} />{formatTimer(remaining)} محفوظة</div>
+              <p className="mt-2 text-[13.5px] leading-7 text-muted">الوقت متوقف الآن لجميع الطلاب. لا تغلق الصفحة. ستعود تلقائياً عند استئناف المدرس للجلسة.</p>
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-surface-soft px-3 py-1.5 text-[11.5px] font-bold text-muted"><TimerReset size={13} />{formatTimer(remaining)} محفوظة</div>
             </motion.div>
           </motion.div>
         ) : null}
@@ -464,10 +480,10 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
         }
       >
         <div className="rounded-[12px] border border-line bg-surface-soft p-3">
-          <div className="flex items-center justify-between text-[10px]"><span className="text-muted">الإجابات المكتملة</span><span className="font-bold text-ink">{formatNumber(answered)} / {formatNumber(questions.length)}</span></div>
+          <div className="flex items-center justify-between text-[12px]"><span className="text-muted">الإجابات المكتملة</span><span className="font-bold text-ink">{formatNumber(answered)} / {formatNumber(questions.length)}</span></div>
           <ProgressBar value={progress} className="mt-2" tone={answered === questions.length ? 'emerald' : 'warning'} />
         </div>
-        {focusLossRef.current ? <p className="mt-2 flex items-center gap-1.5 text-[9px] text-warning"><ShieldAlert size={11} />سيتم إرفاق ملاحظة فقدان التركيز مع المحاولة.</p> : null}
+        {focusLossRef.current ? <p className="mt-2 flex items-center gap-1.5 text-[11px] text-warning"><ShieldAlert size={12} />سيتم إرفاق ملاحظة فقدان التركيز مع المحاولة.</p> : null}
       </Modal>
     </div>
   );

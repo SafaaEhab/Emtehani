@@ -63,7 +63,7 @@ function InviteStat({ value, suffix, label }) {
         {typeof value === 'number' ? number : value}
         {suffix ? <span className="text-primary">{suffix}</span> : null}
       </strong>
-      <span className="mt-2 block text-[10.5px] font-semibold text-muted">{label}</span>
+      <span className="mt-2 block text-[11.5px] font-semibold text-muted">{label}</span>
     </div>
   );
 }
@@ -78,7 +78,7 @@ function LivePreview() {
   ];
   return (
     <div className="relative mx-auto w-full max-w-[560px]">
-      <div className="absolute -inset-6 -z-10 rounded-[36px] bg-primary-soft/80 blur-2xl dark:bg-primary-soft/50" />
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[36px] bg-primary-soft/80 blur-2xl dark:bg-primary-soft/50" />
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 18, rotate: -0.5 }}
         animate={{ opacity: 1, y: 0, rotate: 0 }}
@@ -182,7 +182,7 @@ function FeatureCard({ icon: Icon, title, description, className = '', tone = 'p
     <Card className={`group relative overflow-hidden p-5 sm:p-6 ${className}`} hover>
       <div className={`mb-4 grid size-10 place-items-center rounded-[13px] ${tones[tone]}`}><Icon size={19} strokeWidth={1.9} /></div>
       <h3 className="font-display text-[15px] font-semibold tracking-[-0.02em] text-ink">{title}</h3>
-      <p className="mt-1.5 max-w-md text-[11.5px] leading-6 text-muted">{description}</p>
+      <p className="mt-1.5 max-w-md text-[13px] leading-6 text-muted">{description}</p>
       {children}
     </Card>
   );
@@ -212,14 +212,14 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
           <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="العودة إلى الأعلى"><Logo /></button>
           <nav className="hidden items-center gap-1 md:flex" aria-label="التنقل الرئيسي">
             {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="rounded-[9px] px-3 py-2 text-[11.5px] font-semibold text-muted transition hover:bg-surface-soft hover:text-ink">{link.label}</a>
+              <a key={link.href} href={link.href} className="rounded-[9px] px-3 py-2 text-[12.5px] font-semibold text-muted transition hover:bg-surface-soft hover:text-ink">{link.label}</a>
             ))}
           </nav>
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="grid size-9 place-items-center rounded-[10px] border border-line bg-surface text-muted transition hover:text-ink">
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button type="button" onClick={onLogin} className="hidden h-9 items-center rounded-[10px] px-3 text-[11.5px] font-bold text-muted transition hover:bg-surface-soft hover:text-ink sm:inline-flex">تسجيل الدخول</button>
+            <button type="button" onClick={onLogin} className="hidden h-9 items-center rounded-[10px] px-3 text-[12px] font-bold text-muted transition hover:bg-surface-soft hover:text-ink sm:inline-flex">تسجيل الدخول</button>
             <Button size="sm" onClick={onRegister} className="hidden sm:inline-flex">ابدأ مجاناً</Button>
             <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-label={menuOpen ? 'إغلاق القائمة' : 'فتح القائمة'} className="grid size-9 place-items-center rounded-[10px] border border-line bg-surface text-ink md:hidden">
               {menuOpen ? <X size={17} /> : <Menu size={17} />}
@@ -278,7 +278,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
                 </a>
               </motion.div>
 
-              <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0.34} className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] font-semibold text-subtle lg:justify-start">
+              <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0.34} className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-semibold text-subtle lg:justify-start">
                 {['بدون تثبيت', 'واجهة RTL أصلية', 'تصحيح تلقائي', 'تصدير CSV'].map((item) => (
                   <span key={item} className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald" />{item}</span>
                 ))}
@@ -293,7 +293,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
               <InviteStat value={6} label="أنواع أسئلة جاهزة" />
               <InviteStat value={3} suffix=" ثوانٍ" label="تحديث لوحة المتابعة" />
               <InviteStat value="100%" label="واجهة عربية RTL" />
-              <InviteStat value="CSV" label="تصدير النتائج والأكواد" />
+              <InviteStat value="CSV" label="تصدير النتائج والحضور" />
             </div>
           </motion.div>
         </section>
@@ -339,7 +339,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
                 </div>
               </FeatureCard>
 
-              <FeatureCard icon={Download} title="نتائج قابلة للمشاركة" description="صدّر النتائج والأكواد بصيغة CSV، أو راجع إجابات المقالات يدوياً من شاشة واحدة." tone="emerald">
+              <FeatureCard icon={Download} title="نتائج قابلة للمشاركة" description="صدّر النتائج بصيغة CSV، أو راجع إجابات المقالات يدوياً من شاشة واحدة." tone="emerald">
                 <div className="mt-5 flex items-center justify-between rounded-[12px] border border-line bg-surface-soft px-3 py-2">
                   <span className="ui-ltr text-[9px] text-muted">results_math.csv</span>
                   <span className="grid size-6 place-items-center rounded-full bg-emerald-soft text-emerald"><Download size={12} /></span>
@@ -358,12 +358,12 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
 
         <section id="workflow" className="scroll-mt-24 border-y border-line bg-surface-soft/55 py-16 sm:py-20">
           <div className="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
-            <SectionHeading eyebrow="ثلاث خطوات" title="من الفكرة إلى الجلسة المباشرة." description="لا تحتاج إعداداً طويلاً. أنشئ الامتحان، أرسل الأكواد، ثم افتح الجلسة عندما تكون جاهزاً." align="center" />
+            <SectionHeading eyebrow="ثلاث خطوات" title="من الفكرة إلى الجلسة المباشرة." description="لا تحتاج إعداداً طويلاً. أنشئ الامتحان، وانشره وافتح الجلسة عندما تكون جاهزاً." align="center" />
             <div className="relative mt-10 grid gap-4 md:grid-cols-3">
               <div className="absolute inset-x-[16%] top-8 hidden h-px bg-line md:block" />
               {[
                 { step: '01', icon: FileQuestion, title: 'أنشئ الامتحان', text: 'أضف الأسئلة والدرجات والمدة، وحدّد موعد الجلسة إن أردت.' },
-                { step: '02', icon: Users, title: 'وزّع الأكواد', text: 'ولّد كوداً لكل طالب وشاركه. الكود لا يعمل من حساب شخص آخر.' },
+                { step: '02', icon: Users, title: 'كود لكل طالب', text: 'كل حساب طالب يمتلك كوداً شخصياً ثابتاً يتولد تلقائياً، ولا يعمل إلا من حسابه.' },
                 { step: '03', icon: Radio, title: 'افتح وتابع', text: 'افتح الجلسة، راقب الحضور والتسليم، وتحكّم بالوقت من لوحة واحدة.' },
               ].map((item) => (
                 <motion.div key={item.step} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="relative rounded-card border border-line bg-surface p-5 shadow-soft">
@@ -372,7 +372,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
                     <span className="ui-number font-display text-2xl font-semibold text-line-strong">{item.step}</span>
                   </div>
                   <h3 className="mt-4 font-display text-[15px] font-semibold text-ink">{item.title}</h3>
-                  <p className="mt-1.5 text-[11.5px] leading-6 text-muted">{item.text}</p>
+                  <p className="mt-1.5 text-[13px] leading-6 text-muted">{item.text}</p>
                 </motion.div>
               ))}
             </div>
@@ -393,10 +393,10 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
                     <div className="mb-4 flex gap-0.5 text-warning" aria-label="خمس نجوم">
                       {Array.from({ length: 5 }).map((_, star) => <span key={star} className="text-[12px]">★</span>)}
                     </div>
-                    <blockquote className="flex-1 text-[12.5px] leading-7 text-ink">“{item.quote}”</blockquote>
+                    <blockquote className="flex-1 text-[14px] leading-7 text-ink">“{item.quote}”</blockquote>
                     <div className="mt-5 flex items-center gap-2.5 border-t border-line pt-4">
-                      <span className="grid size-9 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary">{item.initials}</span>
-                      <div><p className="text-[11px] font-bold text-ink">{item.name}</p><p className="text-[9.5px] text-muted">{item.role}</p></div>
+                      <span className="grid size-9 place-items-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">{item.initials}</span>
+                      <div><p className="text-[12.5px] font-bold text-ink">{item.name}</p><p className="text-[11px] text-muted">{item.role}</p></div>
                     </div>
                   </Card>
                 </motion.div>
@@ -410,22 +410,22 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
             <div>
               <span className="mb-2.5 inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[0.14em] text-primary"><Sparkles size={13} />أسئلة سريعة</span>
               <h2 className="font-display text-[clamp(1.55rem,3vw,2.25rem)] font-semibold leading-[1.3] tracking-[-0.04em]">قبل أن تبدأ، هذه الإجابات.</h2>
-              <p className="mt-2 text-[12.5px] leading-7 text-muted">لو احتجت تفاصيل أكثر، تواصل مباشرة مع فريق التطوير.</p>
-              <a href="mailto:ahmedgbreel47@gmail.com" className="mt-4 inline-flex items-center gap-2 rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[11px] font-bold text-ink shadow-soft transition hover:border-primary/40 hover:text-primary"><Mail size={14} />راسلنا</a>
+              <p className="mt-2 text-[13.5px] leading-7 text-muted">لو احتجت تفاصيل أكثر، تواصل مباشرة مع فريق التطوير.</p>
+              <a href="mailto:ahmedgbreel47@gmail.com" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[12px] font-bold text-ink shadow-soft transition hover:border-primary/40 hover:text-primary"><Mail size={14} />راسلنا</a>
             </div>
             <div className="grid gap-2.5">
               {[
                 ['هل أحتاج تثبيت أي برنامج؟', 'لا. المنصة تعمل من المتصفح على الكمبيوتر أو الجوال. سجّل الدخول وابدأ.'],
-                ['كيف يستلم الطالب كود الامتحان؟', 'المدرس يولّد الأكواد من صفحة الامتحان ويشاركها مع الطلاب. كل كود مرتبط بحساب طالب محدد.'],
+                ['كيف يستلم الطالب كود امتحانه؟', 'يتولد لكل طالب كود شخصي ثابت من 6 أرقام تلقائياً عند إنشاء حسابه، ويجده دائماً في مساحته الرئيسية.'],
                 ['هل يمكن إيقاف الامتحان مؤقتاً؟', 'نعم. عند الإيقاف يتوقف الوقت، وعند الاستئناف يُضاف زمن التوقف تلقائياً إلى وقت الطلاب.'],
                 ['هل تصحح الأسئلة المقالية تلقائياً؟', 'الاختيار من متعدد والصواب والخطأ تُصحح تلقائياً. المقالات تظهر في قائمة مراجعة يدوية للمدرس.'],
               ].map(([question, answer]) => (
                 <details key={question} className="group rounded-[14px] border border-line bg-surface px-4 py-3.5 shadow-soft open:border-primary/25">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-bold text-ink">
+                  <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-[14px] font-bold text-ink">
                     {question}
                     <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-soft text-muted transition group-open:rotate-45 group-open:bg-primary-soft group-open:text-primary"><span className="text-base leading-none">+</span></span>
                   </summary>
-                  <p className="mt-2.5 border-t border-line pt-3 text-[11.5px] leading-7 text-muted">{answer}</p>
+                  <p className="mt-2.5 border-t border-line pt-3 text-[13px] leading-7 text-muted">{answer}</p>
                 </details>
               ))}
             </div>
@@ -441,7 +441,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
                 <div className="max-w-xl">
                   <Badge tone="primary" className="bg-white/10 text-white">ابدأ اليوم</Badge>
                   <h2 className="mt-4 font-display text-[clamp(1.7rem,3.4vw,2.6rem)] font-semibold leading-[1.3] tracking-[-0.04em]">جاهز تفتح أول جلسة امتحان؟</h2>
-                  <p className="mt-2 max-w-lg text-[12.5px] leading-7 text-white/65">أنشئ حسابك، ابنِ الامتحان الأول، وجرّب غرفة الانتظار مع طلابك. البداية لا تحتاج أكثر من دقائق.</p>
+                  <p className="mt-2 max-w-lg text-[13.5px] leading-7 text-white/75">أنشئ حسابك، ابنِ الامتحان الأول، وجرّب غرفة الانتظار مع طلابك. البداية لا تحتاج أكثر من دقائق.</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                   <Button size="lg" onClick={onRegister} iconEnd={ArrowLeft} className="!bg-white !text-[#10172e] shadow-none hover:!bg-white/90">ابدأ مجاناً</Button>
@@ -458,7 +458,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.4fr_.6fr_.6fr_.8fr]">
             <div>
               <Logo />
-              <p className="mt-3 max-w-[280px] text-[11px] leading-6 text-muted">منصة عربية للامتحانات الرقمية، تركّز على وضوح التجربة وتحكّم المدرس في كل خطوة.</p>
+              <p className="mt-3 max-w-[280px] text-[12.5px] leading-6 text-muted">منصة عربية للامتحانات الرقمية، تركّز على وضوح التجربة وتحكّم المدرس في كل خطوة.</p>
               <div className="mt-4 flex items-center gap-2">
                 <a href="https://github.com/AGbreel" target="_blank" rel="noreferrer" aria-label="GitHub" className="grid size-8 place-items-center rounded-[9px] border border-line text-muted transition hover:border-line-strong hover:text-ink"><GithubMark size={14} /></a>
                 <a href="https://www.linkedin.com/in/ahmed-gbreel-8465b0352/" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="grid size-8 place-items-center rounded-[9px] border border-line text-muted transition hover:border-line-strong hover:text-ink"><LinkedinMark size={14} /></a>
@@ -466,31 +466,31 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
               </div>
             </div>
             <div>
-              <h3 className="text-[10.5px] font-extrabold text-ink">المنصة</h3>
-              <div className="mt-3 grid gap-2 text-[10.5px] text-muted">
+              <h3 className="text-[12px] font-extrabold text-ink">المنصة</h3>
+              <div className="mt-3 grid gap-2.5 text-[12px] text-muted">
                 <a href="#features" className="transition hover:text-primary">المزايا</a>
                 <a href="#workflow" className="transition hover:text-primary">كيف يعمل</a>
                 <a href="#faq" className="transition hover:text-primary">الأسئلة الشائعة</a>
               </div>
             </div>
             <div>
-              <h3 className="text-[10.5px] font-extrabold text-ink">الحساب</h3>
-              <div className="mt-3 grid gap-2 text-[10.5px] text-muted">
+              <h3 className="text-[12px] font-extrabold text-ink">الحساب</h3>
+              <div className="mt-3 grid gap-2.5 text-[12px] text-muted">
                 <button type="button" onClick={onLogin} className="text-right transition hover:text-primary">تسجيل الدخول</button>
                 <button type="button" onClick={onRegister} className="text-right transition hover:text-primary">حساب جديد</button>
                 <button type="button" onClick={onOpenPortfolio} className="text-right transition hover:text-primary">ملف المطور</button>
               </div>
             </div>
             <div>
-              <h3 className="text-[10.5px] font-extrabold text-ink">تواصل</h3>
-              <div className="mt-3 grid gap-2 text-[10.5px] text-muted">
+              <h3 className="text-[12px] font-extrabold text-ink">تواصل</h3>
+              <div className="mt-3 grid gap-2.5 text-[12px] text-muted">
                 <a href="mailto:ahmedgbreel47@gmail.com" className="ui-ltr text-left transition hover:text-primary">ahmedgbreel47@gmail.com</a>
                 <span>الرياض، المملكة العربية السعودية</span>
                 <span className="inline-flex items-center gap-1 text-emerald"><ShieldCheck size={11} />بيانات الدخول محمية</span>
               </div>
             </div>
           </div>
-          <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-line pt-5 text-[9.5px] text-subtle sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-line pt-5 text-[11px] text-subtle sm:flex-row">
             <span>© {new Date().getFullYear()} امتحاني. جميع الحقوق محفوظة.</span>
             <span>صُنع بعناية للفصول العربية · <button type="button" onClick={onOpenPortfolio} className="font-bold text-muted hover:text-primary">Ahmed Gbreel</button></span>
           </div>

@@ -50,7 +50,7 @@ export default function JoinExamPage({ token, onJoined, onBack }) {
       <PageHeader
         eyebrow="بوابة الطالب"
         title="دخول امتحان"
-        description="اكتب الكود المخصص لك. لا يعمل الكود إلا من حسابك أنت."
+        description="اكتب كودك الشخصي المرتبط بحسابك لتسجيل حضورك في الجلسة الحالية."
         action={<Button variant="secondary" size="sm" icon={ArrowRight} onClick={onBack}>العودة للرئيسية</Button>}
       />
 
@@ -61,11 +61,11 @@ export default function JoinExamPage({ token, onJoined, onBack }) {
           <div className="pointer-events-none absolute -left-16 -top-16 size-56 rounded-full bg-primary-soft blur-3xl" />
           <div className="relative mx-auto max-w-lg text-center">
             <div className="mx-auto grid size-14 place-items-center rounded-[18px] bg-primary-soft text-primary"><KeyRound size={25} /></div>
-            <h2 className="mt-4 font-display text-[clamp(1.5rem,3vw,2rem)] font-semibold tracking-[-0.04em] text-ink">أدخل كود الامتحان</h2>
-            <p className="mx-auto mt-1.5 max-w-sm text-[11.5px] leading-6 text-muted">الكود من 6 أرقام، ويصلك من المدرس. تأكد من كتابته كما هو دون مسافات.</p>
+            <h2 className="mt-4 font-display text-[clamp(1.5rem,3vw,2rem)] font-semibold tracking-[-0.04em] text-ink">أدخل كودك الشخصي</h2>
+            <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-6 text-muted">الكود من 6 أرقام، تولّد تلقائياً عند إنشاء حسابك ولا يتغير. تجده دائماً في مساحتك الرئيسية.</p>
 
             <form onSubmit={submit} className="mt-6">
-              <label htmlFor="exam-code" className="sr-only">كود الامتحان</label>
+              <label htmlFor="exam-code" className="sr-only">كودك الشخصي</label>
               <div className="relative mx-auto max-w-[330px]">
                 <input
                   id="exam-code"
@@ -79,14 +79,14 @@ export default function JoinExamPage({ token, onJoined, onBack }) {
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-subtle"><Hash size={17} /></span>
               </div>
-              <p id="code-hint" className="mt-2 text-[9.5px] text-subtle">يمكنك لصق الكود مباشرة، وسنحتفظ بالأرقام فقط.</p>
+              <p id="code-hint" className="mt-2 text-[11.5px] text-subtle">يمكنك لصق كودك مباشرة، وسنحتفظ بالأرقام فقط.</p>
 
               <div className="mx-auto mt-5 max-w-[330px]">
                 <Button type="submit" size="lg" loading={busy} disabled={code.length !== 6} iconEnd={ArrowLeft} className="w-full">دخول غرفة الانتظار</Button>
               </div>
             </form>
 
-            <div className="mx-auto mt-7 flex max-w-md flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-line pt-4 text-[9.5px] font-semibold text-subtle">
+            <div className="mx-auto mt-7 flex max-w-md flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-line pt-4 text-[11px] font-semibold text-subtle">
               <span className="inline-flex items-center gap-1.5"><ShieldCheck size={12} className="text-emerald" />مرتبط بحسابك</span>
               <span className="inline-flex items-center gap-1.5"><LockKeyhole size={12} className="text-primary" />دخول آمن</span>
               <span className="inline-flex items-center gap-1.5"><Clock3 size={12} className="text-warning" />انتظار منظم</span>
@@ -108,7 +108,7 @@ export default function JoinExamPage({ token, onJoined, onBack }) {
                 ].map((step, index) => (
                   <div key={step.title} className="flex gap-2.5">
                     <span className="grid size-7 shrink-0 place-items-center rounded-[8px] bg-white/10 text-white/80"><step.icon size={13} /></span>
-                    <div><p className="text-[10px] font-bold">{step.title}</p><p className="mt-0.5 text-[8.5px] leading-4 text-white/45">{step.text}</p></div>
+                    <div><p className="text-[12px] font-bold">{step.title}</p><p className="mt-0.5 text-[10.5px] leading-5 text-white/65">{step.text}</p></div>
                   </div>
                 ))}
               </div>
@@ -118,7 +118,7 @@ export default function JoinExamPage({ token, onJoined, onBack }) {
           <Card className="p-4">
             <div className="flex items-start gap-2">
               <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald" />
-              <p className="text-[9.5px] leading-5 text-muted">إذا ظهرت رسالة أن الكود غير صحيح، راجع المدرس. لا تحاول استخدام كود طالب آخر.</p>
+              <p className="text-[11.5px] leading-5 text-muted">إذا ظهرت رسالة أن الكود غير صحيح، تأكد من كتابته بدقة أو راجع ملف حسابك. لا تحاول استخدام كود طالب آخر.</p>
             </div>
           </Card>
         </div>

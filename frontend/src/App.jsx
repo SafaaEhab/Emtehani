@@ -70,11 +70,29 @@ export default function App() {
   const [paper, setPaper] = useState(null);
   const [reviewId, setReviewId] = useState('');
   const [reviewBack, setReviewBack] = useState('results');
+  const [authNotice, setAuthNotice] = useState('');
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('emtehani-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    function onSessionExpired() {
+      clearAuth();
+      setToken('');
+      setUser(null);
+      setSelectedExam(null);
+      setJoined(null);
+      setPaper(null);
+      setReviewId('');
+      setAuthMode('login');
+      setAuthNotice('انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى للمتابعة.');
+      setPage((current) => current === 'portfolio' ? current : 'auth');
+    }
+    window.addEventListener('emtehani:session-expired', onSessionExpired);
+    return () => window.removeEventListener('emtehani:session-expired', onSessionExpired);
+  }, []);
 
   useEffect(() => {
     if (!stored.token) return;
@@ -87,12 +105,18 @@ export default function App() {
         storeAuth(stored.token, nextUser);
         setPage((current) => current === 'portfolio' ? current : 'dashboard');
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
         clearAuth();
         setToken('');
         setUser(null);
-        setPage((current) => current === 'portfolio' ? current : 'landing');
+        if (err?.status === 401) {
+          setAuthMode('login');
+          setAuthNotice('انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى للمتابعة.');
+          setPage((current) => current === 'portfolio' ? current : 'auth');
+        } else {
+          setPage((current) => current === 'portfolio' ? current : 'landing');
+        }
       })
       .finally(() => { if (active) setBooting(false); });
     return () => { active = false; };
@@ -125,12 +149,13 @@ export default function App() {
       body: JSON.stringify(mode === 'login' ? { email: payload.email, password: payload.password } : payload),
     });
     if (mode === 'register') {
-      return { registered: true, message: data.message };
+      return { registered: true, message: data.message, studentCode: data.studentCode };
     }
-    const nextUser = { fullName: data.fullName, email: data.email, role: data.role };
+    const nextUser = { fullName: data.fullName, email: data.email, role: data.role, studentCode: data.studentCode || '' };
     storeAuth(data.token, nextUser);
     setToken(data.token);
     setUser(nextUser);
+    setAuthNotice('');
     setPage('dashboard');
     setAuthMode('login');
     return { registered: false };
@@ -144,6 +169,7 @@ export default function App() {
     setJoined(null);
     setPaper(null);
     setReviewId('');
+    setAuthNotice('');
     setPage('landing');
     setAuthMode('login');
   }
@@ -244,10 +270,13 @@ export default function App() {
         <AuthPage
           initialMode={authMode}
           onAuth={authenticate}
-          onBack={() => setPage('landing')}
+          onBack={() => { setAuthNotice(''); setPage('landing'); }}
           onOpenPortfolio={openPortfolio}
           theme={theme}
           onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}
+          notice={authNotice}
+          noticeTone="warning"
+          clearNotice={() => setAuthNotice('')}
         />
       );
     }
@@ -272,7 +301,7 @@ export default function App() {
         <header className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Logo />
           <div className="flex items-center gap-2">
-            <span className="hidden text-[10px] text-muted sm:inline">{user.fullName}</span>
+            <span className="hidden text-[11px] text-muted sm:inline">{user.fullName}</span>
             <Button variant="ghost" size="xs" icon={LogOut} onClick={logout}>خروج</Button>
           </div>
         </header>

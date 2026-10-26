@@ -17,6 +17,7 @@ import {
   Badge,
   Button,
   Card,
+  CopyChip,
   EmptyState,
   PageHeader,
   ProgressBar,
@@ -59,7 +60,7 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
       <PageHeader
         eyebrow="مساحة الطالب"
         title={`أهلاً، ${user?.fullName?.split(' ')[0] || 'طالبنا'}.`}
-        description="جاهز لامتحانك القادم؟ أدخل الكود الذي أرسله المدرس، وسنأخذك إلى غرفة الانتظار."
+        description="كودك الشخصي لا يتغير: اكتبه في صفحة دخول الامتحان وسنأخذك إلى غرفة الانتظار."
         action={<Button size="sm" icon={KeyRound} onClick={onJoin}>دخول امتحان</Button>}
       />
 
@@ -70,11 +71,18 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
         <div className="pointer-events-none absolute -bottom-20 right-1/3 size-56 rounded-full bg-emerald/20 blur-3xl" />
         <div className="relative grid items-center gap-5 sm:grid-cols-[1fr_auto]">
           <div>
-            <Badge className="border-white/15 bg-white/10 text-white">الخطوة الأولى</Badge>
-            <h2 className="mt-3 font-display text-[clamp(1.5rem,3vw,2.1rem)] font-semibold leading-tight tracking-[-0.04em]">امتحانك يبدأ بكود من 6 أرقام.</h2>
-            <p className="mt-2 max-w-lg text-[11.5px] leading-7 text-white/65">افتح صفحة الدخول، اكتب الكود المرتبط بحسابك، وانتظر إشارة المدرس لبدء الجلسة. لا تشارك كودك مع أي شخص.</p>
+            <Badge className="border-white/15 bg-white/10 text-white">كودك الشخصي</Badge>
+            <h2 className="mt-3 font-display text-[clamp(1.5rem,3vw,2.1rem)] font-semibold leading-tight tracking-[-0.04em]">امتحانك يبدأ بكودك الخاص من 6 أرقام.</h2>
+            <p className="mt-2 max-w-lg text-[13px] leading-7 text-white/80">تولّد لك تلقائياً عند إنشاء حسابك ولا تتغير، وترتبط ببياناتك فقط. اكتبه في صفحة دخول الامتحان لتسجيل حضورك وانتظر إشارة المدرس لبدء الجلسة. لا تشاركه مع أي شخص.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="rounded-[13px] border border-white/15 bg-white/10 px-4 py-2.5 font-mono text-2xl font-bold tracking-[0.35em] text-white" dir="ltr" style={{ maxWidth: '100%' }}>{user?.studentCode || '———'}</span>
+              {user?.studentCode ? <span className="rounded-[13px] bg-white/95 px-1.5 text-primary shadow-sm"><CopyChip value={user.studentCode} label="نسخ الكود" /></span> : null}
+            </div>
           </div>
-          <Button size="lg" onClick={onJoin} icon={ArrowLeft} className="w-full !bg-white !text-primary shadow-none hover:!bg-white/90 sm:w-auto">أدخل كود الامتحان</Button>
+          <div className="grid gap-2 sm:w-auto">
+            <Button size="lg" onClick={onJoin} icon={ArrowLeft} className="w-full !bg-white !text-primary shadow-none hover:!bg-white/90 sm:w-auto">أدخل كودك الشخصي</Button>
+            {!user?.studentCode ? <p className="max-w-[220px] text-[10.5px] leading-5 text-white/60">إن لم يظهر كودك هنا، سجّل الخروج ثم الدخول ليتم توليده تلقائياً.</p> : null}
+          </div>
         </div>
       </motion.div>
 
@@ -87,8 +95,8 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card className="overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-            <div><h2 className="font-display text-[15px] font-semibold text-ink">أحدث النتائج</h2><p className="text-[10px] text-muted">آخر الامتحانات التي سلّمتها.</p></div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-4 sm:px-5">
+            <div><h2 className="font-display text-[15px] font-semibold text-ink">أحدث النتائج</h2><p className="mt-1 text-[11.5px] text-muted">آخر الامتحانات التي سلّمتها.</p></div>
             <Button variant="ghost" size="sm" iconEnd={ArrowLeft} onClick={onViewResults}>عرض الكل</Button>
           </div>
           {loading ? (
@@ -103,13 +111,13 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
                   <button key={item.id} type="button" onClick={() => onOpenReview(item.id)} className="group flex items-center gap-3 rounded-[13px] border border-line bg-surface-soft/50 p-3 text-right transition hover:border-primary/30 hover:bg-primary-soft/30">
                     <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary-soft text-primary"><FileText size={16} /></span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2"><p className="truncate text-[11.5px] font-bold text-ink">{item.examTitle}</p><StatusChip status={item.status} className="px-1.5 py-1 text-[8px]" /></div>
-                      <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2"><p className="truncate text-[13px] font-bold text-ink">{item.examTitle}</p><StatusChip status={item.status} className="px-2 py-1 text-[10px]" /></div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <ProgressBar value={value} className="h-1.5 max-w-[110px]" tone={value >= 60 ? 'emerald' : value >= 50 ? 'warning' : 'danger'} />
-                        <span className="text-[9px] text-muted">{formatDate(item.submittedAtUtc)}</span>
+                        <span className="text-[10.5px] text-muted">{formatDate(item.submittedAtUtc)}</span>
                       </div>
                     </div>
-                    <div className="text-left"><strong className="ui-number block text-[13px] text-ink">{scoreText(item.score, item.maxScore)}</strong><span className="ui-number text-[9px] text-muted">{formatNumber(value)}%</span></div>
+                    <div className="shrink-0 text-left"><strong className="ui-number block text-[13px] text-ink">{scoreText(item.score, item.maxScore)}</strong><span className="ui-number text-[10.5px] text-muted">{formatNumber(value)}%</span></div>
                   </button>
                 );
               })}
@@ -123,13 +131,13 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
             <h3 className="mt-3 font-display text-[14px] font-semibold text-ink">كيف تعمل غرفة الانتظار؟</h3>
             <div className="mt-3 grid gap-2.5">
               {[
-                { icon: KeyRound, text: 'أدخل كودك الخاص، وسيتحقق النظام من حسابك.' },
+                { icon: KeyRound, text: 'أدخل كودك الشخصي، وسيتحقق النظام من حسابك.' },
                 { icon: Clock3, text: 'انتظر داخل الغرفة حتى يفتح المدرس الجلسة.' },
                 { icon: CheckCircle2, text: 'سيبدأ الوقت تلقائياً. أجب ثم سلّم قبل انتهاء المدة.' },
               ].map((step, index) => (
                 <div key={step.text} className="flex gap-2.5">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-[9px] font-bold text-primary">{index + 1}</span>
-                  <p className="text-[10px] leading-5 text-muted">{step.text}</p>
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-[10.5px] font-bold text-primary">{index + 1}</span>
+                  <p className="text-[11.5px] leading-5 text-muted">{step.text}</p>
                 </div>
               ))}
             </div>
@@ -137,7 +145,7 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
 
           <Card className="p-5">
             <div className="flex items-center justify-between"><h3 className="font-display text-[14px] font-semibold text-ink">تنبيه مهم</h3><Badge tone="warning">للجميع</Badge></div>
-            <p className="mt-2 text-[10.5px] leading-6 text-muted">لا تشارك كود الامتحان مع أي طالب آخر. الكود مرتبط بحسابك، ومشاركته قد تؤدي إلى إيقاف محاولتك.</p>
+            <p className="mt-2 text-[12px] leading-6 text-muted">كودك الشخصي مرتبط بحسابك وبياناتك ولا يتغير. لا تشاركه مع أي طالب آخر — الدخول به هو ما يسجّل حضورك.</p>
           </Card>
         </div>
       </div>

@@ -5,3 +5,4 @@ obj/
 appsettings.Development.json
 .vercel/
 .env*
+!.env.example

@@ -59,7 +59,7 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
   if (error || !data) {
     return (
       <div>
-        <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-muted hover:text-primary"><ArrowLeft size={14} className="rotate-180" />رجوع</button>
+        <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-10 items-center gap-1.5 text-[12px] font-bold text-muted hover:text-primary"><ArrowLeft size={14} className="rotate-180" />رجوع</button>
         <Alert tone="danger" title="تعذر تحميل المحاولة">{error || 'لم نعثر على بيانات المحاولة.'}</Alert>
         <Button variant="secondary" size="sm" className="mt-4" onClick={onBack}>العودة</Button>
       </div>
@@ -75,7 +75,7 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
 
   return (
     <div>
-      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى النتائج</button>
+      <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-10 items-center gap-1.5 text-[12px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى النتائج</button>
 
       <PageHeader
         eyebrow={isTeacher ? 'مراجعة يدوية' : 'نتيجتك'}
@@ -95,12 +95,12 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
               <div className="grid size-[76px] place-items-center rounded-full bg-surface">
                 <div className="text-center">
                   <strong className="ui-number block font-display text-[24px] font-semibold leading-none text-ink">{formatNumber(value)}%</strong>
-                  <span className="mt-1 block text-[8.5px] text-muted">النسبة</span>
+                  <span className="mt-1 block text-[10.5px] text-muted">النسبة</span>
                 </div>
               </div>
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted">الدرجة</p>
+              <p className="text-[11.5px] font-bold text-muted">الدرجة</p>
               <p className="ui-number mt-1 font-display text-[28px] font-semibold leading-none tracking-[-0.04em] text-ink">{scoreText(data.score, data.maxScore)}</p>
               <div className="mt-2"><StatusChip status={data.status} /></div>
             </div>
@@ -115,12 +115,12 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
               <div key={item.label} className="text-center">
                 <item.icon size={14} className="mx-auto mb-1 text-primary" />
                 <p className="ui-number text-[12px] font-bold text-ink">{item.value}</p>
-                <p className="mt-0.5 text-[8px] text-subtle">{item.label}</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-subtle">{item.label}</p>
               </div>
             ))}
           </div>
 
-          <div className="grid gap-1.5 text-[10px]">
+          <div className="grid gap-1.5 text-[11.5px]">
             <div className="flex items-center gap-2 text-muted"><UserRound size={13} />{isTeacher ? data.studentName : data.teacherName || 'المدرس'}</div>
             {data.focusLossDetected ? <div className="flex items-center gap-2 text-warning"><ShieldAlert size={13} />رُصد خروج من الصفحة</div> : null}
             {data.copyAttemptCount ? <div className="flex items-center gap-2 text-warning"><ScanEye size={13} />محاولة نسخ ({formatNumber(data.copyAttemptCount)})</div> : null}
@@ -130,9 +130,9 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
         </div>
 
         {data.status === 'NeedsReview' ? (
-          <div className="mt-4 flex flex-col gap-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3.5 py-3 text-[10.5px] text-warning sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-4 flex flex-col gap-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3.5 py-3 text-[12px] leading-5 text-warning sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-2"><AlertTriangle size={15} />الدرجة الحالية مؤقتة حتى يتم تصحيح الأسئلة المقالية.</span>
-            {isTeacher ? <button type="button" onClick={() => onOpenEssayReview(submissionId)} className="shrink-0 text-[10px] font-extrabold underline underline-offset-4">بدء المراجعة</button> : null}
+            {isTeacher ? <button type="button" onClick={() => onOpenEssayReview(submissionId)} className="min-h-8 shrink-0 text-[11.5px] font-extrabold underline underline-offset-4">بدء المراجعة</button> : null}
           </div>
         ) : null}
       </Card>
@@ -145,7 +145,7 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
       </div>
 
       <div className="mb-3 flex items-center justify-between">
-        <div><h2 className="font-display text-[16px] font-semibold text-ink">مراجعة الإجابات</h2><p className="text-[10px] text-muted">{canSeeCorrect ? 'تظهر الإجابة الصحيحة بجانب إجابة الطالب.' : 'ستظهر الإجابة الصحيحة بعد اكتمال التصحيح.'}</p></div>
+        <div><h2 className="font-display text-[16px] font-semibold text-ink">مراجعة الإجابات</h2><p className="mt-1 text-[11.5px] text-muted">{canSeeCorrect ? 'تظهر الإجابة الصحيحة بجانب إجابة الطالب.' : 'ستظهر الإجابة الصحيحة بعد اكتمال التصحيح.'}</p></div>
         <Badge tone="primary">{formatNumber(answers.length)} سؤال</Badge>
       </div>
 

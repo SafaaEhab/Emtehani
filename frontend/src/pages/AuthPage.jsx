@@ -36,7 +36,7 @@ function AuthVisual() {
           كل ما يحدث في الجلسة،
           <span className="text-emerald"> أمامك بوضوح.</span>
         </h2>
-        <p className="mt-3 max-w-sm text-[12px] leading-7 text-white/55">من دخول الطالب إلى آخر ورقة مسلّمة. لا تخمّن، راقب، وتحكّم.</p>
+        <p className="mt-3 max-w-sm text-[13px] leading-7 text-white/70">من دخول الطالب إلى آخر ورقة مسلّمة. لا تخمّن، راقب، وتحكّم.</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="relative mt-10 w-full max-w-[430px] self-center">
@@ -76,7 +76,7 @@ function AuthVisual() {
   );
 }
 
-export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpenPortfolio, theme, onToggleTheme, notice, clearNotice }) {
+export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpenPortfolio, theme, onToggleTheme, notice, clearNotice, noticeTone = 'success' }) {
   const [mode, setMode] = useState(initialMode);
   const [role, setRole] = useState('Student');
   const [showPassword, setShowPassword] = useState(false);
@@ -84,7 +84,8 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   const [error, setError] = useState('');
   const [resendBusy, setResendBusy] = useState(false);
   const [localNotice, setLocalNotice] = useState('');
-  const [form, setForm] = useState({ fullName: '', email: '', password: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', inviteCode: '' });
+  const [accepted, setAccepted] = useState(false);
 
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -104,7 +105,8 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     clearNotice?.();
     if (mode === 'register' && form.fullName.trim().length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
-    if (form.password.length < 8) return setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+    if (form.password.length < 8 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
+    if (mode === 'register' && !accepted) return setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية.');
     setBusy(true);
     try {
       const result = await onAuth(mode, {
@@ -112,10 +114,13 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
         email: form.email.trim(),
         password: form.password,
         role,
+        inviteCode: role === 'Teacher' ? form.inviteCode.trim() : undefined,
       });
       if (result?.registered) {
         setMode('login');
-        setLocalNotice(result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول.');
+        setLocalNotice(result.studentCode
+          ? `${result.message || 'تم إنشاء الحساب.'} كودك الشخصي للامتحانات: ${result.studentCode} — احفظه في مكان آمن، وستجده دائماً في مساحتك الرئيسية بعد تسجيل الدخول.`
+          : (result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول.'));
       }
     } catch (err) {
       setError(err.message || 'تعذر إكمال العملية. حاول مرة أخرى.');
@@ -146,8 +151,8 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
         <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
           <button type="button" onClick={onBack} className="rounded-lg"><Logo /></button>
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={onOpenPortfolio} className="hidden h-9 items-center rounded-[10px] px-3 text-[10.5px] font-bold text-muted transition hover:bg-surface-soft hover:text-ink sm:inline-flex">ملف المطور</button>
-            <button type="button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="grid size-9 place-items-center rounded-[10px] border border-line bg-surface text-muted transition hover:text-ink">
+            <button type="button" onClick={onOpenPortfolio} className="hidden h-9 items-center rounded-[10px] px-3 text-[11.5px] font-bold text-muted transition hover:bg-surface-soft hover:text-ink sm:inline-flex">ملف المطور</button>
+            <button type="button" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="grid size-10 place-items-center rounded-[10px] border border-line bg-surface text-muted transition hover:text-ink">
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
@@ -155,14 +160,14 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
 
         <main className="flex flex-1 items-center justify-center px-4 pb-10 pt-4 sm:px-8">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="w-full max-w-[430px]">
-            <button type="button" onClick={onBack} className="mb-6 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-muted transition hover:text-primary"><ArrowRight size={14} />العودة للرئيسية</button>
+            <button type="button" onClick={onBack} className="mb-6 inline-flex min-h-10 items-center gap-1.5 text-[11.5px] font-bold text-muted transition hover:text-primary"><ArrowRight size={14} />العودة للرئيسية</button>
 
             <div className="mb-6">
               <div className="mb-3 inline-flex size-11 items-center justify-center rounded-[14px] bg-primary-soft text-primary"><LockKeyhole size={21} /></div>
               <h1 className="font-display text-[clamp(1.7rem,3vw,2.15rem)] font-semibold leading-tight tracking-[-0.045em] text-ink">
                 {mode === 'login' ? 'أهلاً بعودتك.' : 'أنشئ حسابك في دقيقة.'}
               </h1>
-              <p className="mt-1.5 text-[12px] leading-6 text-muted">
+              <p className="mt-1.5 text-[13.5px] leading-6 text-muted">
                 {mode === 'login' ? 'سجّل الدخول لمتابعة امتحاناتك أو إدارة جلستك القادمة.' : 'اختر نوع الحساب، وأدخل بياناتك، وستكون جاهزاً للبدء.'}
               </p>
             </div>
@@ -175,7 +180,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
               options={[{ value: 'login', label: 'تسجيل الدخول' }, { value: 'register', label: 'حساب جديد' }]}
             />
 
-            {activeNotice ? <Alert tone="success" className="mb-4" onClose={() => { clearNotice?.(); setLocalNotice(''); }}>{activeNotice}</Alert> : null}
+            {activeNotice ? <Alert tone={notice ? noticeTone : 'success'} className="mb-4" onClose={() => { clearNotice?.(); setLocalNotice(''); }}>{activeNotice}</Alert> : null}
             {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
 
             <form onSubmit={submit} className="grid gap-4" noValidate>
@@ -184,7 +189,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                   <Field label="الاسم الكامل" id="auth-name">
                     <div className="relative">
                       <UserRound size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                      <Input id="auth-name" autoComplete="name" value={form.fullName} onChange={update('fullName')} placeholder="مثال: سارة أحمد" className="pr-10" />
+                      <Input id="auth-name" autoComplete="name" maxLength={120} value={form.fullName} onChange={update('fullName')} placeholder="مثال: سارة أحمد" className="pr-10" />
                     </div>
                   </Field>
 
@@ -196,39 +201,48 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                       ].map((item) => (
                         <button key={item.value} type="button" onClick={() => setRole(item.value)} aria-pressed={role === item.value} className={`flex items-center gap-2.5 rounded-[12px] border p-3 text-right transition ${role === item.value ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-line-strong'}`}>
                           <span className={`grid size-8 shrink-0 place-items-center rounded-[9px] ${role === item.value ? 'bg-primary text-white' : 'bg-surface-soft text-muted'}`}><item.icon size={15} /></span>
-                          <span><strong className="block text-[11px] text-ink">{item.label}</strong><span className="text-[8.5px] text-muted">{item.detail}</span></span>
+                          <span><strong className="block text-[12.5px] text-ink">{item.label}</strong><span className="text-[10.5px] text-muted">{item.detail}</span></span>
                         </button>
                       ))}
                     </div>
                   </Field>
+
+                  {role === 'Teacher' ? (
+                    <Field label="رمز دعوة المدرس" id="auth-invite" hint="أدخل الرمز الذي حصلت عليه من إدارة المنصة. اتركه فارغاً إذا كان التسجيل مفتوحاً.">
+                      <div className="relative">
+                        <ShieldCheck size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
+                        <Input id="auth-invite" autoComplete="off" dir="ltr" maxLength={128} value={form.inviteCode} onChange={update('inviteCode')} placeholder="INVITE-CODE" className="pr-10 text-left" />
+                      </div>
+                    </Field>
+                  ) : null}
                 </>
               ) : null}
 
               <Field label="البريد الإلكتروني" id="auth-email">
                 <div className="relative">
                   <Mail size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                  <Input id="auth-email" type="email" autoComplete="email" dir="ltr" value={form.email} onChange={update('email')} placeholder="name@example.com" className="pr-10 text-left" />
+                  <Input id="auth-email" type="email" autoComplete="email" dir="ltr" maxLength={254} value={form.email} onChange={update('email')} placeholder="name@example.com" className="pr-10 text-left" />
                 </div>
               </Field>
 
               <Field label="كلمة المرور" id="auth-password" hint={mode === 'register' ? '8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.' : undefined}>
                 <div className="relative">
                   <LockKeyhole size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                  <Input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={update('password')} placeholder="••••••••" className="pl-10 pr-10" />
-                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle transition hover:text-ink" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
+                  <Input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} value={form.password} onChange={update('password')} placeholder="••••••••" className="pl-10 pr-10" />
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-subtle transition hover:bg-surface-soft hover:text-ink" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </Field>
 
               {mode === 'login' ? (
-                <div className="flex items-center justify-between gap-2 text-[10px]">
-                  <button type="button" onClick={resend} disabled={resendBusy} className="font-bold text-primary transition hover:text-primary-strong disabled:opacity-60">{resendBusy ? 'جارٍ الإرسال...' : 'إعادة إرسال رابط التفعيل'}</button>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px]">
+                  <button type="button" onClick={resend} disabled={resendBusy} className="min-h-9 font-bold text-primary transition hover:text-primary-strong disabled:opacity-60">{resendBusy ? 'جارٍ الإرسال...' : 'إعادة إرسال رابط التفعيل'}</button>
                   <span className="text-subtle">الدخول متاح للطلاب والمدرسين</span>
                 </div>
               ) : (
-                <label className="flex items-start gap-2 text-[10px] leading-5 text-muted">
-                  <input type="checkbox" required className="mt-1 size-3.5 accent-primary" />
+                <label className="flex items-start gap-2 text-[12px] leading-6 text-muted">
+                  <input type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-1.5 size-4 accent-primary" />
                   <span>أوافق على استخدام المنصة لأغراض تعليمية، وعلى سياسة الخصوصية.</span>
                 </label>
               )}
@@ -238,14 +252,14 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
               </Button>
             </form>
 
-            <p className="mt-5 text-center text-[10.5px] text-muted">
+            <p className="mt-5 text-center text-[12px] text-muted">
               {mode === 'login' ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}{' '}
               <button type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')} className="font-extrabold text-primary hover:underline">
                 {mode === 'login' ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
               </button>
             </p>
 
-            <div className="mt-7 flex items-center justify-center gap-1.5 text-[9px] text-subtle">
+            <div className="mt-7 flex items-center justify-center gap-1.5 text-[10.5px] text-subtle">
               <ShieldCheck size={11} />
               بياناتك محمية ولا تُشارك مع أي طرف ثالث.
             </div>

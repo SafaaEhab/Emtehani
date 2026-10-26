@@ -5,7 +5,6 @@ import {
   ClipboardCheck,
   Download,
   FileText,
-  KeyRound,
   ListFilter,
   MousePointerClick,
   Radio,
@@ -37,8 +36,6 @@ const actionMeta = {
   'exam.paused': { label: 'إيقاف مؤقت', icon: MousePointerClick, tone: 'warning' },
   'exam.resumed': { label: 'استئناف جلسة', icon: Activity, tone: 'emerald' },
   'exam.closed': { label: 'إنهاء جلسة', icon: CheckCircle2, tone: 'neutral' },
-  'exam.participants.generated': { label: 'توليد أكواد طلاب', icon: KeyRound, tone: 'primary' },
-  'exam.participant-code.regenerated': { label: 'تحديث كود طالب', icon: KeyRound, tone: 'blue' },
   'submission.started': { label: 'بدء محاولة', icon: UserCheck, tone: 'blue' },
   'submission.submitted': { label: 'تسليم محاولة', icon: CheckCircle2, tone: 'emerald' },
   'essay.graded': { label: 'تصحيح مقالي', icon: ClipboardCheck, tone: 'warning' },
@@ -115,10 +112,10 @@ export default function AuditPage({ token }) {
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-line px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-display text-[14px] font-semibold text-ink">الأحداث</h2><p className="text-[9.5px] text-muted">مرتبة من الأحدث إلى الأقدم.</p></div>
+          <div><h2 className="font-display text-[15px] font-semibold text-ink">الأحداث</h2><p className="mt-1 text-[11.5px] text-muted">مرتبة من الأحدث إلى الأقدم.</p></div>
           <div className="relative w-full sm:max-w-[260px]">
             <Search size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-subtle" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث في السجل..." className="h-9 w-full rounded-[9px] border border-line bg-surface-soft pr-8 pl-3 text-[10.5px] outline-none focus:border-primary focus:bg-surface" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث في السجل..." className="h-10 w-full rounded-[9px] border border-line bg-surface-soft pr-8 pl-3 text-[12.5px] outline-none focus:border-primary focus:bg-surface" />
           </div>
         </div>
 
@@ -130,17 +127,17 @@ export default function AuditPage({ token }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[780px] text-right">
-                <thead><tr className="border-b border-line bg-surface-soft/60 text-[9.5px] font-extrabold text-muted"><th className="px-5 py-3">الحدث</th><th className="px-3 py-3">النوع</th><th className="px-3 py-3">التفاصيل</th><th className="px-5 py-3">الوقت</th></tr></thead>
+                <thead><tr className="border-b border-line bg-surface-soft/60 text-[11px] font-extrabold text-muted"><th className="px-5 py-3">الحدث</th><th className="px-3 py-3">النوع</th><th className="px-3 py-3">التفاصيل</th><th className="px-5 py-3">الوقت</th></tr></thead>
                 <tbody>
                   {filtered.map((item) => {
                     const meta = metaFor(item.action);
                     const Icon = meta.icon;
                     return (
                       <tr key={item.id} className="border-b border-line/70 last:border-0 hover:bg-surface-soft/50">
-                        <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><span className={cn('grid size-8 place-items-center rounded-[9px]', tones[meta.tone])}><Icon size={14} /></span><div><p className="text-[11px] font-bold text-ink">{meta.label}</p><p className="ui-ltr text-[8.5px] text-subtle">{item.action}</p></div></div></td>
+                        <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><span className={cn('grid size-8 place-items-center rounded-[9px]', tones[meta.tone])}><Icon size={14} /></span><div><p className="text-[12.5px] font-bold text-ink">{meta.label}</p><p className="ui-ltr text-[10px] text-subtle">{item.action}</p></div></div></td>
                         <td className="px-3 py-3.5"><Badge tone="neutral">{item.entityType || '—'}</Badge></td>
-                        <td className="max-w-[220px] px-3 py-3.5"><p className="truncate text-[9.5px] text-muted" title={item.details || ''}>{item.details || '—'}</p></td>
-                        <td className="px-5 py-3.5 text-[9.5px] text-muted">{formatDate(item.atUtc)}</td>
+                        <td className="max-w-[220px] px-3 py-3.5"><p className="truncate text-[11px] text-muted" title={item.details || ''}>{item.details || '—'}</p></td>
+                        <td className="px-5 py-3.5 text-[11px] text-muted">{formatDate(item.atUtc)}</td>
                       </tr>
                     );
                   })}
@@ -154,7 +151,7 @@ export default function AuditPage({ token }) {
                 return (
                   <div key={item.id} className="flex items-start gap-2.5 rounded-[12px] border border-line bg-surface-soft/50 p-3">
                     <span className={cn('grid size-8 shrink-0 place-items-center rounded-[9px]', tones[meta.tone])}><Icon size={14} /></span>
-                    <div className="min-w-0 flex-1"><p className="text-[11px] font-bold text-ink">{meta.label}</p><p className="mt-0.5 truncate text-[9px] text-subtle" dir="ltr">{item.action}</p><p className="mt-1 text-[8.5px] text-muted">{formatDate(item.atUtc)}</p></div>
+                    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-1"><p className="text-[12.5px] font-bold text-ink">{meta.label}</p><Badge tone="neutral">{item.entityType || '—'}</Badge></div><p className="mt-1 truncate text-[10px] text-subtle" dir="ltr">{item.action}</p>{item.details ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted">{item.details}</p> : null}<p className="mt-1 text-[10.5px] text-muted">{formatDate(item.atUtc)}</p></div>
                   </div>
                 );
               })}
@@ -164,7 +161,7 @@ export default function AuditPage({ token }) {
 
         {!loading && totalPages > 1 ? (
           <div className="flex items-center justify-between border-t border-line px-4 py-3">
-            <p className="text-[9.5px] text-muted">صفحة {formatNumber(page)} من {formatNumber(totalPages)}</p>
+            <p className="text-[11px] text-muted">صفحة {formatNumber(page)} من {formatNumber(totalPages)}</p>
             <div className="flex gap-2">
               <Button variant="secondary" size="xs" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>السابق</Button>
               <Button variant="secondary" size="xs" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>التالي</Button>

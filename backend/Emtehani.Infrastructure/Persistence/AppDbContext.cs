@@ -4,12 +4,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
  public DbSet<AppUser> Users=>Set<AppUser>(); public DbSet<Exam> Exams=>Set<Exam>(); public DbSet<Question> Questions=>Set<Question>(); public DbSet<ExamParticipant> ExamParticipants=>Set<ExamParticipant>();
  public DbSet<Submission> Submissions=>Set<Submission>(); public DbSet<SubmissionAnswer> Answers=>Set<SubmissionAnswer>(); public DbSet<AuditEvent> AuditEvents=>Set<AuditEvent>();
  protected override void OnModelCreating(ModelBuilder b) {
-  b.Entity<AppUser>().HasIndex(x=>x.Email).IsUnique(); b.Entity<Exam>().HasIndex(x=>x.JoinCode).IsUnique();
+  b.Entity<AppUser>().HasIndex(x=>x.Email).IsUnique();
+  b.Entity<AppUser>().Property(x=>x.StudentCode).HasMaxLength(12);
+  var studentCodeFilter = Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true ? "\"StudentCode\" <> ''" : "[StudentCode] <> ''";
+  b.Entity<AppUser>().HasIndex(x=>x.StudentCode).IsUnique().HasDatabaseName("IX_Users_StudentCode").HasFilter(studentCodeFilter);
   b.Entity<Exam>().HasMany(x=>x.Questions).WithOne(x=>x.Exam).HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<Exam>().HasMany(x=>x.Participants).WithOne(x=>x.Exam).HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Cascade);
-  b.Entity<ExamParticipant>().HasIndex(x=>x.Code).IsUnique();
-  b.Entity<ExamParticipant>().HasIndex(x=>new{x.ExamId,x.StudentId}).IsUnique();
   b.Entity<ExamParticipant>().HasOne(x=>x.Student).WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<ExamParticipant>().HasIndex(x=>new{x.ExamId,x.StudentId}).IsUnique();
+  var participantCodeFilter = Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true ? "\"Code\" <> ''" : "[Code] <> ''";
+  b.Entity<ExamParticipant>().HasIndex(x=>x.Code).IsUnique().HasFilter(participantCodeFilter);
+  b.Entity<Exam>().HasIndex(x=>x.JoinCode).IsUnique();
   b.Entity<Submission>().HasOne(x=>x.Student).WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<Submission>().HasOne(x=>x.Exam).WithMany().HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<Submission>().HasMany(x=>x.Answers).WithOne(x=>x.Submission).HasForeignKey(x=>x.SubmissionId).OnDelete(DeleteBehavior.Cascade);

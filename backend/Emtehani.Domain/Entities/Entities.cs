@@ -1,17 +1,17 @@
 namespace Emtehani.Domain.Entities;
 public sealed class AppUser {
  public Guid Id {get;set;}=Guid.NewGuid(); public string FullName {get;set;}=""; public string Email {get;set;}="";
- public string PasswordHash {get;set;}=""; public string Role {get;set;}="Student"; public bool EmailConfirmed {get;set;} public string? EmailVerificationToken {get;set;} public DateTime? EmailVerificationExpiresUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
+ public string PasswordHash {get;set;}=""; public string Role {get;set;}="Student"; public string StudentCode {get;set;}=""; public bool EmailConfirmed {get;set;} public string? EmailVerificationToken {get;set;} public DateTime? EmailVerificationExpiresUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
 }
 public sealed class Exam {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid TeacherId {get;set;} public string Title {get;set;}=""; public string? Description {get;set;}
- public string JoinCode {get;set;}=""; public int DurationMinutes {get;set;}=30; public int MaxAttempts {get;set;}=1; public bool AllowResumeAfterFocusLoss {get;set;}=true; public bool IsPublished {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
- public string Status {get;set;}="Draft"; public DateTime? ScheduledAtUtc {get;set;} public DateTime? PausedAtUtc {get;set;}
+ public int DurationMinutes {get;set;}=30; public int MaxAttempts {get;set;}=1; public bool AllowResumeAfterFocusLoss {get;set;}=true; public bool IsPublished {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
+ public string Status {get;set;}="Draft"; public DateTime? ScheduledAtUtc {get;set;} public DateTime? PausedAtUtc {get;set;} public string JoinCode {get;set;}="";
  public List<Question> Questions {get;set;}=[]; public List<ExamParticipant> Participants {get;set;}=[];
 }
 public sealed class ExamParticipant {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid ExamId {get;set;} public Exam? Exam {get;set;} public Guid StudentId {get;set;} public AppUser? Student {get;set;}
- public string Code {get;set;}=""; public string Status {get;set;}="Invited"; public DateTime? JoinedAtUtc {get;set;} public DateTime? LastSeenAtUtc {get;set;} public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
+ public string Status {get;set;}="Invited"; public DateTime? JoinedAtUtc {get;set;} public DateTime? LastSeenAtUtc {get;set;} public string Code {get;set;}=""; public DateTime CreatedAtUtc {get;set;}=DateTime.UtcNow;
 }
 public sealed class Question {
  public Guid Id {get;set;}=Guid.NewGuid(); public Guid ExamId {get;set;} public Exam? Exam {get;set;} public string Text {get;set;}="";

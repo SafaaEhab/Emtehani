@@ -31,7 +31,7 @@ export function Logo({ compact = false, className = '' }) {
       {!compact ? (
         <span className="flex flex-col leading-none">
           <strong className="font-display text-[1.3rem] font-semibold tracking-[-0.04em] text-ink">امتحاني</strong>
-          <span className="mt-1 text-[10px] font-medium tracking-[0.16em] text-muted">EMTEHANI</span>
+          <span className="mt-1 text-[10.5px] font-medium tracking-[0.16em] text-muted">EMTEHANI</span>
         </span>
       ) : null}
     </span>
@@ -49,10 +49,10 @@ const buttonVariants = {
 };
 
 const buttonSizes = {
-  xs: 'h-8 rounded-[9px] px-3 text-[11px]',
-  sm: 'h-9 rounded-[10px] px-3.5 text-xs',
+  xs: 'h-8 rounded-[9px] px-3 text-[12px]',
+  sm: 'h-9 rounded-[10px] px-3.5 text-[13px]',
   md: 'h-11 rounded-[12px] px-5 text-sm',
-  lg: 'h-12 rounded-[14px] px-6 text-sm',
+  lg: 'h-12 rounded-[14px] px-6 text-[15px]',
 };
 
 export function Button({
@@ -105,10 +105,11 @@ export function IconButton({ label, children, className = '', variant = 'seconda
   );
 }
 
-export function Card({ children, className = '', as = 'div', hover = false }) {
+export function Card({ children, className = '', as = 'div', hover = false, ...props }) {
   const Component = as;
   return (
     <Component
+      {...props}
       className={cn(
         'rounded-card border border-line bg-surface shadow-soft',
         hover && 'transition duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-card',
@@ -131,7 +132,7 @@ const badgeTones = {
 
 export function Badge({ children, tone = 'neutral', className = '', dot = false }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10.5px] font-bold leading-none', badgeTones[tone], className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-bold leading-none', badgeTones[tone], className)}>
       {dot ? <span className="size-1.5 rounded-full bg-current" /> : null}
       {children}
     </span>
@@ -188,9 +189,9 @@ export function Avatar({ name = '', size = 'md', className = '' }) {
 export function Field({ label, hint, error, children, className = '', id }) {
   return (
     <div className={cn('grid gap-1.5', className)}>
-      <label htmlFor={id} className="text-[12.5px] font-bold text-ink">{label}</label>
+      <label htmlFor={id} className="text-[13px] font-bold text-ink">{label}</label>
       {children}
-      {error ? <p className="text-[11px] font-semibold text-danger">{error}</p> : hint ? <p className="text-[11px] leading-5 text-muted">{hint}</p> : null}
+      {error ? <p className="text-[12px] font-semibold text-danger">{error}</p> : hint ? <p className="text-[12px] leading-5 text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -222,9 +223,9 @@ export function SectionHeading({ eyebrow, title, description, action, align = 's
   return (
     <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between', align === 'center' && 'text-center sm:flex-col sm:items-center', className)}>
       <div className={cn('max-w-2xl', align === 'center' && 'mx-auto')}>
-        {eyebrow ? <div className="mb-2.5 inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[0.14em] text-primary"><Sparkles size={13} />{eyebrow}</div> : null}
+        {eyebrow ? <div className="mb-2.5 inline-flex items-center gap-2 text-[11.5px] font-extrabold tracking-[0.14em] text-primary"><Sparkles size={13} />{eyebrow}</div> : null}
         <h2 className="font-display text-[clamp(1.55rem,3vw,2.35rem)] font-semibold leading-[1.3] tracking-[-0.04em] text-ink">{title}</h2>
-        {description ? <p className="mt-2 max-w-xl text-[13px] leading-7 text-muted sm:text-sm">{description}</p> : null}
+        {description ? <p className="mt-2 max-w-xl text-[14px] leading-7 text-muted">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -235,9 +236,9 @@ export function PageHeader({ eyebrow, title, description, action, className = ''
   return (
     <div className={cn('mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div>
-        {eyebrow ? <span className="mb-1.5 block text-[10.5px] font-extrabold tracking-[0.16em] text-primary">{eyebrow}</span> : null}
+        {eyebrow ? <span className="mb-1.5 block text-[11.5px] font-extrabold tracking-[0.16em] text-primary">{eyebrow}</span> : null}
         <h1 className="font-display text-[clamp(1.55rem,3vw,2.1rem)] font-semibold leading-tight tracking-[-0.04em] text-ink">{title}</h1>
-        {description ? <p className="mt-1.5 text-[12.5px] leading-6 text-muted">{description}</p> : null}
+        {description ? <p className="mt-1.5 text-[13.5px] leading-6 text-muted">{description}</p> : null}
       </div>
       {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
     </div>
@@ -255,11 +256,11 @@ export function StatCard({ icon: Icon, label, value, note, tone = 'primary', cla
   return (
     <Card className={cn('group relative overflow-hidden p-4 sm:p-5', className)}>
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[11.5px] font-bold text-muted">{label}</span>
+        <span className="text-[12.5px] font-bold text-muted">{label}</span>
         {Icon ? <span className={cn('grid size-9 place-items-center rounded-[11px]', toneClasses[tone])}><Icon size={18} strokeWidth={2.1} /></span> : null}
       </div>
       {loading ? <div className="ui-shimmer mt-4 h-9 w-20 rounded-lg" /> : <strong className="ui-number mt-2 block font-display text-[2rem] font-semibold leading-tight text-ink">{value}</strong>}
-      {note ? <p className="mt-1 text-[10.5px] leading-5 text-subtle">{note}</p> : null}
+      {note ? <p className="mt-1 text-[11.5px] leading-5 text-subtle">{note}</p> : null}
       <span className="pointer-events-none absolute -bottom-8 -left-6 size-20 rounded-full bg-primary-soft opacity-0 blur-2xl transition group-hover:opacity-100" />
     </Card>
   );
@@ -301,7 +302,7 @@ export function EmptyState({ icon: Icon = FileText, title, description, action, 
         <span className="absolute inset-0 -z-10 rounded-[18px] bg-primary-soft blur-xl" />
       </div>
       <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
-      {description ? <p className="mt-1.5 max-w-sm text-xs leading-6 text-muted">{description}</p> : null}
+      {description ? <p className="mt-1.5 max-w-sm text-[13px] leading-6 text-muted">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -316,10 +317,10 @@ export function Alert({ tone = 'danger', title, children, onClose, className = '
   };
   const Icon = tone === 'success' ? CheckCircle2 : tone === 'info' ? ShieldCheck : AlertTriangle;
   return (
-    <div className={cn('flex items-start gap-3 rounded-[14px] border px-3.5 py-3 text-xs leading-6', tones[tone], className)} role={tone === 'danger' ? 'alert' : 'status'}>
+    <div className={cn('flex items-start gap-3 rounded-[14px] border px-3.5 py-3 text-[13px] leading-6', tones[tone], className)} role={tone === 'danger' ? 'alert' : 'status'}>
       <Icon size={17} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        {title ? <strong className="block text-[12px] font-bold">{title}</strong> : null}
+        {title ? <strong className="block text-[13px] font-bold">{title}</strong> : null}
         <div>{children}</div>
       </div>
       {onClose ? <button type="button" onClick={onClose} className="mt-0.5 opacity-70 hover:opacity-100" aria-label="إغلاق التنبيه"><X size={15} /></button> : null}
@@ -375,7 +376,7 @@ export function Modal({ open, onClose, title, description, icon: Icon = ShieldCh
               <Icon size={23} />
             </div>
             <h2 id={titleId} className="font-display text-xl font-semibold tracking-[-0.03em] text-ink">{title}</h2>
-            {description ? <p className="mt-2 text-xs leading-6 text-muted">{description}</p> : null}
+            {description ? <p className="mt-2 text-[13px] leading-6 text-muted">{description}</p> : null}
             {children ? <div className="mt-5">{children}</div> : null}
             {footer ? <div className="mt-6 flex flex-wrap justify-end gap-2">{footer}</div> : null}
           </motion.div>
@@ -387,7 +388,7 @@ export function Modal({ open, onClose, title, description, icon: Icon = ShieldCh
 
 export function Spinner({ label = 'جارٍ التحميل' }) {
   return (
-    <span className="inline-flex items-center gap-2 text-xs text-muted" role="status">
+    <span className="inline-flex items-center gap-2 text-[13px] text-muted" role="status">
       <LoaderCircle size={16} className="animate-spin" />
       {label}
     </span>
@@ -397,7 +398,7 @@ export function Spinner({ label = 'جارٍ التحميل' }) {
 export function LiveDot({ label = 'مباشر', tone = 'emerald', className = '' }) {
   const colors = { emerald: 'bg-emerald', danger: 'bg-danger', warning: 'bg-warning', primary: 'bg-primary' };
   return (
-    <span className={cn('inline-flex items-center gap-2 text-[10.5px] font-bold text-muted', className)}>
+    <span className={cn('inline-flex items-center gap-2 text-[11.5px] font-bold text-muted', className)}>
       <span className="relative flex size-2">
         <span className={cn('absolute inline-flex size-full animate-ping rounded-full opacity-60', colors[tone])} />
         <span className={cn('relative inline-flex size-2 rounded-full', colors[tone])} />
@@ -416,7 +417,7 @@ export function Segmented({ options, value, onChange, className = '', ariaLabel 
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={cn('relative flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[11px] font-bold transition', value === option.value ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink')}
+          className={cn('relative flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[12px] font-bold transition', value === option.value ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink')}
         >
           {option.icon ? <option.icon size={13} /> : null}
           {option.label}
@@ -444,16 +445,16 @@ export function CopyChip({ value, label = 'نسخ', className = '', onCopied }) 
     window.setTimeout(() => setCopied(false), 1600);
   }
   return (
-    <button type="button" onClick={copy} className={cn('inline-flex items-center gap-1.5 rounded-[9px] border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px] font-bold tracking-[0.08em] text-primary transition hover:border-primary/40 hover:bg-primary-soft', className)}>
+    <button type="button" onClick={copy} className={cn('inline-flex items-center gap-1.5 rounded-[9px] border border-line bg-surface px-2.5 py-1.5 font-mono text-[12px] font-bold tracking-[0.08em] text-primary transition hover:border-primary/40 hover:bg-primary-soft', className)}>
       <span className="ui-ltr">{value}</span>
-      {copied ? <Check size={13} className="text-emerald" /> : <span className="text-[9px] font-bold text-muted">{label}</span>}
+      {copied ? <Check size={13} className="text-emerald" /> : <span className="text-[10px] font-bold text-muted">{label}</span>}
     </button>
   );
 }
 
 export function BackButton({ children = 'رجوع', onClick, className = '' }) {
   return (
-    <button type="button" onClick={onClick} className={cn('inline-flex items-center gap-1.5 text-[11px] font-bold text-muted transition hover:text-primary', className)}>
+    <button type="button" onClick={onClick} className={cn('inline-flex items-center gap-1.5 text-[12px] font-bold text-muted transition hover:text-primary', className)}>
       <ChevronLeft size={14} className="rotate-180" />
       {children}
     </button>

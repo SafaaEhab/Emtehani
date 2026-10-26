@@ -5,15 +5,11 @@ import {
   ArrowLeft,
   BarChart3,
   Clock3,
-  Copy,
   Download,
-  KeyRound,
   LockKeyhole,
   Play,
-  Plus,
   Radio,
   RefreshCw,
-  RotateCcw,
   Square,
   TimerReset,
   Users,
@@ -27,7 +23,6 @@ import {
   Card,
   CopyChip,
   EmptyState,
-  IconButton,
   LiveDot,
   Modal,
   PageHeader,
@@ -50,7 +45,6 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState('');
-  const [busyParticipant, setBusyParticipant] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
   const [syncedAt, setSyncedAt] = useState(Date.now());
   const [tick, setTick] = useState(0);
@@ -125,42 +119,13 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
     setNotice('');
     try {
       const result = await request(`/api/exams/${exam.id}/publish`, { token, method: 'PUT' });
-      setExam((current) => ({ ...current, isPublished: result.isPublished, status: result.status, joinCode: result.joinCode ?? current.joinCode }));
-      setNotice('تم نشر الامتحان. الآن يمكن توليد أكواد الطلاب.');
+      setExam((current) => ({ ...current, isPublished: result.isPublished, status: result.status }));
+      setNotice('تم نشر الامتحان. افتح الجلسة في وقتها وسيظهر الطلاب تلقائياً بعد دخولهم بأكوادهم الشخصية.');
       await load(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy('');
-    }
-  }
-
-  async function generate() {
-    setBusy('generate');
-    setError('');
-    setNotice('');
-    try {
-      const result = await request(`/api/exams/${exam.id}/participants/generate`, { token, method: 'POST', body: JSON.stringify({}) });
-      setNotice(result.generated ? `تم توليد ${formatNumber(result.generated)} كود طالب.` : 'كل الطلاب لديهم أكواد بالفعل.');
-      await load(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  async function regenerate(participant) {
-    setBusyParticipant(participant.id);
-    setError('');
-    try {
-      const result = await request(`/api/exams/${exam.id}/participants/${participant.id}/regenerate`, { token, method: 'POST' });
-      setParticipants((current) => current.map((item) => item.id === participant.id ? { ...item, code: result.code } : item));
-      setNotice(`تم تحديث كود ${participant.studentName}.`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusyParticipant('');
     }
   }
 
@@ -195,7 +160,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
 
   return (
     <div>
-      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى الامتحانات</button>
+      <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-9 items-center gap-1.5 text-[12px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى الامتحانات</button>
 
       <PageHeader
         eyebrow="إدارة الجلسة"
@@ -228,58 +193,57 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
       {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
       {notice ? <Alert tone="success" className="mb-4" onClose={() => setNotice('')}>{notice}</Alert> : null}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between"><span className="text-[10.5px] font-bold text-muted">حالة الجلسة</span><StatusChip status={exam.status} /></div>
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Card className="p-3.5 sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[11.5px] font-bold text-muted">حالة الجلسة</span><StatusChip status={exam.status} /></div>
           <div className="mt-3 flex items-center gap-2">
-            {exam.status === 'Active' ? <LiveDot label="مفتوحة الآن" /> : <span className="text-[10px] text-subtle">{exam.status === 'Paused' ? 'الوقت متوقف للجميع' : 'لم تبدأ الجلسة بعد'}</span>}
+            {exam.status === 'Active' ? <LiveDot label="مفتوحة الآن" /> : <span className="text-[11px] leading-5 text-subtle">{exam.status === 'Paused' ? 'الوقت متوقف للجميع' : 'لم تبدأ الجلسة بعد'}</span>}
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between"><span className="text-[10.5px] font-bold text-muted">إجمالي الطلاب</span><Users size={16} className="text-blue" /></div>
+        <Card className="p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-2"><span className="text-[11.5px] font-bold text-muted">إجمالي الطلاب</span><Users size={16} className="text-blue" /></div>
           <strong className="ui-number mt-2 block font-display text-2xl font-semibold text-ink">{formatNumber(total)}</strong>
-          <p className="text-[9px] text-subtle">{formatNumber(counts?.submitted || 0)} سلّموا · {formatNumber(counts?.active || 0)} يحلّون الآن</p>
+          <p className="text-[10.5px] leading-5 text-subtle">{formatNumber(counts?.submitted || 0)} سلّموا · {formatNumber(counts?.active || 0)} يحلّون الآن</p>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between"><span className="text-[10.5px] font-bold text-muted">في الانتظار</span><Clock3 size={16} className="text-warning" /></div>
+        <Card className="p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-2"><span className="text-[11.5px] font-bold text-muted">في الانتظار</span><Clock3 size={16} className="text-warning" /></div>
           <strong className="ui-number mt-2 block font-display text-2xl font-semibold text-ink">{formatNumber(counts?.waiting || 0)}</strong>
-          <p className="text-[9px] text-subtle">لم يبدأوا المحاولة بعد</p>
+          <p className="text-[10.5px] leading-5 text-subtle">لم يبدأوا المحاولة بعد</p>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between"><span className="text-[10.5px] font-bold text-muted">انقطع الاتصال</span><UserX size={16} className="text-danger" /></div>
+        <Card className="p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-2"><span className="text-[11.5px] font-bold text-muted">انقطع الاتصال</span><UserX size={16} className="text-danger" /></div>
           <strong className="ui-number mt-2 block font-display text-2xl font-semibold text-ink">{formatNumber(counts?.disconnected || 0)}</strong>
-          <p className="text-[9px] text-subtle">مرّ أكثر من 45 ثانية بلا نشاط</p>
+          <p className="text-[10.5px] leading-5 text-subtle">مرّ أكثر من 45 ثانية بلا نشاط</p>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <Card className="overflow-hidden">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[1fr_320px]">
+        <Card className="min-w-0 overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
-              <div className="flex items-center gap-2"><h2 className="font-display text-[15px] font-semibold text-ink">أكواد الطلاب</h2><Badge tone="primary">{formatNumber(total)}</Badge></div>
-              <p className="mt-0.5 text-[10px] text-muted">كل كود مرتبط بحساب طالب واحد. شارك الكود مع صاحبه فقط.</p>
+              <div className="flex items-center gap-2"><h2 className="font-display text-[15px] font-semibold text-ink">الطلاب</h2><Badge tone="primary">{formatNumber(total)}</Badge></div>
+              <p className="mt-1 text-[11.5px] leading-5 text-muted">كل طالب يدخل بكوده الشخصي المرتبط بحسابه، وسيظهر هنا باسمه وكوده تلقائياً.</p>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Button variant="secondary" size="xs" icon={Download} loading={busy === 'export-codes'} onClick={exportCodes} disabled={!participants.length}>تصدير CSV</Button>
-              <Button size="xs" icon={Plus} loading={busy === 'generate'} onClick={generate} disabled={exam.status === 'Active' || exam.status === 'Paused'}>توليد الأكواد</Button>
             </div>
           </div>
 
           {loading ? <TableSkeleton rows={6} /> : sorted.length === 0 ? (
             <EmptyState
-              icon={KeyRound}
-              title="لا توجد أكواد طلاب بعد"
-              description={exam.isPublished ? 'ولّد كوداً لكل طالب مسجل، ثم شارك الأكواد معهم قبل فتح الجلسة.' : 'انشر الامتحان أولاً، ثم ولّد أكواد الطلاب من هذه الصفحة.'}
-              action={!exam.isPublished ? <Button size="sm" icon={Radio} onClick={publish} loading={busy === 'publish'}>نشر الامتحان</Button> : <Button size="sm" icon={Plus} onClick={generate} loading={busy === 'generate'}>توليد الأكواد</Button>}
+              icon={Users}
+              title="لا يوجد طلاب حاضرون بعد"
+              description={exam.isPublished ? 'انشر الامتحان وافتح الجلسة في وقتها، وسيظهر الطلاب هنا مباشرة بعد إدخالهم أكوادهم الشخصية.' : 'انشر الامتحان أولاً، ثم افتح الجلسة في وقتها ليتمكن الطلاب من الحضور.'}
+              action={!exam.isPublished ? <Button size="sm" icon={Radio} onClick={publish} loading={busy === 'publish'}>نشر الامتحان</Button> : null}
             />
           ) : (
             <>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[820px] text-right">
                   <thead>
-                    <tr className="border-b border-line bg-surface-soft/60 text-[9.5px] font-extrabold text-muted">
+                    <tr className="border-b border-line bg-surface-soft/60 text-[11px] font-extrabold text-muted">
                       <th className="px-5 py-3">الطالب</th>
-                      <th className="px-3 py-3">كود الدخول</th>
+                      <th className="px-3 py-3">كود الطالب</th>
                       <th className="px-3 py-3">الحالة</th>
                       <th className="px-3 py-3">الوقت المتبقي</th>
                       <th className="px-3 py-3">الدرجة</th>
@@ -295,20 +259,18 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                             <div className="flex items-center gap-2.5">
                               <Avatar name={participant.studentName} size="sm" />
                               <div className="min-w-0">
-                                <p className="truncate text-[11.5px] font-bold text-ink">{participant.studentName}</p>
-                                <p className="max-w-[190px] truncate text-[9px] text-subtle" dir="ltr">{participant.email}</p>
+                                <p className="truncate text-[12.5px] font-bold text-ink">{participant.studentName}</p>
+                                <p className="max-w-[190px] truncate text-[10.5px] text-subtle" dir="ltr">{participant.email}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3"><CopyChip value={participant.code} /></td>
+                          <td className="px-3 py-3"><CopyChip value={participant.code} label="كود الطالب" /></td>
                           <td className="px-3 py-3"><StatusChip status={participant.status} /></td>
                           <td className="px-3 py-3">
-                            {remaining == null ? <span className="text-[10px] text-subtle">—</span> : <span className={cn('ui-number text-[12px] font-bold', remaining < 300 ? 'text-danger' : 'text-ink')}>{formatTimer(remaining)}</span>}
+                            {remaining == null ? <span className="text-[11.5px] text-subtle">—</span> : <span className={cn('ui-number text-[12px] font-bold', remaining < 300 ? 'text-danger' : 'text-ink')}>{formatTimer(remaining)}</span>}
                           </td>
-                          <td className="px-3 py-3 text-[10.5px] text-muted">{participant.score != null ? scoreText(participant.score, participant.maxScore) : '—'}</td>
-                          <td className="px-5 py-3 text-left">
-                            <IconButton label="توليد كود جديد" onClick={() => regenerate(participant)} disabled={busyParticipant === participant.id || participant.joinedAtUtc}><RotateCcw size={14} /></IconButton>
-                          </td>
+                          <td className="px-3 py-3 text-[11.5px] text-muted">{participant.score != null ? scoreText(participant.score, participant.maxScore) : '—'}</td>
+                          <td className="px-5 py-3" />
                         </tr>
                       );
                     })}
@@ -320,19 +282,18 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                 {sorted.map((participant) => {
                   const remaining = participant.remainingSeconds == null ? null : Math.max(0, participant.remainingSeconds - (participant.status === 'Active' ? secondsSinceSync : 0));
                   return (
-                    <div key={participant.id} className="rounded-[13px] border border-line bg-surface-soft/50 p-3.5">
+                    <div key={participant.id} className="min-w-0 rounded-[13px] border border-line bg-surface-soft/50 p-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
                           <Avatar name={participant.studentName} size="sm" />
-                          <div className="min-w-0"><p className="truncate text-[11.5px] font-bold text-ink">{participant.studentName}</p><p className="max-w-[150px] truncate text-[8.5px] text-subtle" dir="ltr">{participant.email}</p></div>
+                          <div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{participant.studentName}</p><p className="max-w-[120px] truncate text-[10px] text-subtle sm:max-w-[150px]" dir="ltr">{participant.email}</p></div>
                         </div>
                         <StatusChip status={participant.status} />
                       </div>
-                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
-                        <CopyChip value={participant.code} />
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+                        <CopyChip value={participant.code} label="كود الطالب" />
                         <div className="flex items-center gap-2">
                           {remaining != null ? <span className={cn('ui-number text-[11px] font-bold', remaining < 300 ? 'text-danger' : 'text-muted')}>{formatTimer(remaining)}</span> : null}
-                          <IconButton label="توليد كود جديد" onClick={() => regenerate(participant)} disabled={busyParticipant === participant.id || participant.joinedAtUtc}><RotateCcw size={13} /></IconButton>
                         </div>
                       </div>
                     </div>
@@ -364,7 +325,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                 {exam.isPublished ? <Button variant="success" size="sm" icon={Play} loading={busy === 'open'} onClick={() => runState('open', 'تم فتح الجلسة.')}>فتح الجلسة الآن</Button> : null}
               </div>
             )}
-            <div className="mt-3 rounded-[11px] border border-line bg-surface-soft p-2.5 text-[9.5px] leading-5 text-muted">
+            <div className="mt-3 rounded-[11px] border border-line bg-surface-soft p-2.5 text-[10.5px] leading-5 text-muted">
               <span className="mb-1 flex items-center gap-1 font-bold text-ink"><TimerReset size={12} className="text-primary" />تذكير</span>
               عند الإيقاف المؤقت يتوقف الوقت، وعند الاستئناف يُضاف زمن التوقف تلقائياً.
             </div>
@@ -377,16 +338,6 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
               <Button variant="secondary" size="sm" icon={BarChart3} onClick={() => onOpenResults(exam)}>عرض تحليلات الامتحان</Button>
             </div>
           </Card>
-
-          {exam.joinCode ? (
-            <Card className="p-4">
-              <p className="text-[9px] font-bold text-subtle">كود الجلسة العام (قديم)</p>
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                <CopyChip value={exam.joinCode} />
-                <span className="text-[8px] text-subtle">للتجربة فقط</span>
-              </div>
-            </Card>
-          ) : null}
         </div>
       </div>
 

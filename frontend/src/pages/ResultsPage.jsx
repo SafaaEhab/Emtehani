@@ -42,8 +42,8 @@ function ScoreCell({ score, maxScore, status }) {
   return (
     <div className="min-w-[90px]">
       <div className="flex items-center justify-between gap-2">
-        <span className="ui-number text-[11px] font-bold text-ink">{scoreText(score, maxScore)}</span>
-        <span className={cn('ui-number text-[9.5px]', value >= 60 ? 'text-emerald' : value >= 50 ? 'text-warning' : 'text-danger')}>{formatNumber(value)}%</span>
+        <span className="ui-number text-[12px] font-bold text-ink">{scoreText(score, maxScore)}</span>
+        <span className={cn('ui-number text-[10.5px]', value >= 60 ? 'text-emerald' : value >= 50 ? 'text-warning' : 'text-danger')}>{formatNumber(value)}%</span>
       </div>
       <ProgressBar value={value} className="mt-1.5 h-1.5" tone={status === 'NeedsReview' ? 'warning' : value >= 60 ? 'emerald' : value >= 50 ? 'warning' : 'danger'} />
     </div>
@@ -95,8 +95,8 @@ function StudentResults({ token, onOpenReview }) {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div><h2 className="font-display text-[15px] font-semibold text-ink">سجل النتائج</h2><p className="text-[10px] text-muted">الأحدث أولاً.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-4 sm:px-5">
+          <div><h2 className="font-display text-[15px] font-semibold text-ink">سجل النتائج</h2><p className="mt-1 text-[11.5px] text-muted">الأحدث أولاً.</p></div>
           <Badge tone="primary">{formatNumber(items.length)} نتيجة</Badge>
         </div>
         {loading ? <TableSkeleton rows={5} /> : items.length === 0 ? (
@@ -105,15 +105,15 @@ function StudentResults({ token, onOpenReview }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[820px] text-right">
-                <thead><tr className="border-b border-line bg-surface-soft/60 text-[9.5px] font-extrabold text-muted"><th className="px-5 py-3">الامتحان</th><th className="px-3 py-3">المدرس</th><th className="px-3 py-3">النتيجة</th><th className="px-3 py-3">الحالة</th><th className="px-3 py-3">التسليم</th><th className="px-5 py-3" /></tr></thead>
+                <thead><tr className="border-b border-line bg-surface-soft/60 text-[11px] font-extrabold text-muted"><th className="px-5 py-3">الامتحان</th><th className="px-3 py-3">المدرس</th><th className="px-3 py-3">النتيجة</th><th className="px-3 py-3">الحالة</th><th className="px-3 py-3">التسليم</th><th className="px-5 py-3" /></tr></thead>
                 <tbody>
                   {items.map((item) => (
                     <tr key={item.id} className="border-b border-line/70 last:border-0 hover:bg-surface-soft/50">
-                      <td className="px-5 py-3.5"><p className="max-w-[250px] truncate text-[12px] font-bold text-ink">{item.examTitle}</p><p className="mt-0.5 text-[9px] text-subtle">محاولة {formatNumber(item.attemptNumber)}</p></td>
-                      <td className="px-3 py-3.5 text-[10.5px] text-muted">{item.teacherName || '—'}</td>
+                      <td className="px-5 py-3.5"><p className="max-w-[250px] truncate text-[13px] font-bold text-ink">{item.examTitle}</p><p className="mt-0.5 text-[10.5px] text-subtle">محاولة {formatNumber(item.attemptNumber)}</p></td>
+                      <td className="px-3 py-3.5 text-[11.5px] text-muted">{item.teacherName || '—'}</td>
                       <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></td>
                       <td className="px-3 py-3.5"><StatusChip status={item.status} /></td>
-                      <td className="px-3 py-3.5 text-[9.5px] text-muted">{formatDate(item.submittedAtUtc)}</td>
+                      <td className="px-3 py-3.5 text-[10.5px] text-muted">{formatDate(item.submittedAtUtc)}</td>
                       <td className="px-5 py-3.5 text-left"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button></td>
                     </tr>
                   ))}
@@ -123,9 +123,9 @@ function StudentResults({ token, onOpenReview }) {
             <div className="grid gap-3 p-3 md:hidden">
               {items.map((item) => (
                 <div key={item.id} className="rounded-[14px] border border-line bg-surface-soft/50 p-3.5">
-                  <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.examTitle}</p><p className="mt-0.5 text-[9px] text-subtle">{item.teacherName || '—'} · محاولة {formatNumber(item.attemptNumber)}</p></div><StatusChip status={item.status} /></div>
+                  <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-[13px] font-bold text-ink">{item.examTitle}</p><p className="mt-1 text-[10.5px] text-subtle">{item.teacherName || '—'} · محاولة {formatNumber(item.attemptNumber)}</p></div><StatusChip status={item.status} /></div>
                   <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></div>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[9px] text-subtle">{formatDate(item.submittedAtUtc)}</span><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة الإجابات</Button></div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة الإجابات</Button></div>
                 </div>
               ))}
             </div>
@@ -244,8 +244,8 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
       <Card className="mb-4 p-3.5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1">
-            <label htmlFor="results-exam" className="mb-1.5 block text-[10px] font-bold text-muted">اختر الامتحان</label>
-            <Select id="results-exam" value={examId} onChange={(event) => setExamId(event.target.value)} disabled={loadingExams} className="h-10 text-[11px]">
+            <label htmlFor="results-exam" className="mb-1.5 block text-[11.5px] font-bold text-muted">اختر الامتحان</label>
+            <Select id="results-exam" value={examId} onChange={(event) => setExamId(event.target.value)} disabled={loadingExams} className="h-11 text-[12.5px]">
               <option value="">{loadingExams ? 'جارٍ تحميل الامتحانات...' : 'اختر الامتحان'}</option>
               {exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title}</option>)}
             </Select>
@@ -272,10 +272,10 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
 
           <Card className="overflow-hidden">
             <div className="flex flex-col gap-3 border-b border-line px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-              <div><h2 className="font-display text-[14px] font-semibold text-ink">نتائج الطلاب</h2><p className="text-[9.5px] text-muted">{selected?.title || 'اختر امتحاناً'}</p></div>
+              <div><h2 className="font-display text-[15px] font-semibold text-ink">نتائج الطلاب</h2><p className="mt-1 text-[11.5px] text-muted">{selected?.title || 'اختر امتحاناً'}</p></div>
               <div className="relative w-full sm:max-w-[240px]">
                 <Search size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-subtle" />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث باسم الطالب..." className="h-9 w-full rounded-[9px] border border-line bg-surface-soft pr-8 pl-3 text-[10.5px] outline-none focus:border-primary focus:bg-surface" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث باسم الطالب..." className="h-10 w-full rounded-[9px] border border-line bg-surface-soft pr-8 pl-3 text-[12.5px] outline-none focus:border-primary focus:bg-surface" />
               </div>
             </div>
 
@@ -285,15 +285,15 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
               <>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[900px] text-right">
-                    <thead><tr className="border-b border-line bg-surface-soft/60 text-[9.5px] font-extrabold text-muted"><th className="px-5 py-3">الطالب</th><th className="px-3 py-3">النتيجة</th><th className="px-3 py-3">الحالة</th><th className="px-3 py-3">التسليم</th><th className="px-3 py-3">تنبيهات</th><th className="px-5 py-3" /></tr></thead>
+                    <thead><tr className="border-b border-line bg-surface-soft/60 text-[11px] font-extrabold text-muted"><th className="px-5 py-3">الطالب</th><th className="px-3 py-3">النتيجة</th><th className="px-3 py-3">الحالة</th><th className="px-3 py-3">التسليم</th><th className="px-3 py-3">تنبيهات</th><th className="px-5 py-3" /></tr></thead>
                     <tbody>
                       {filtered.map((item) => (
                         <tr key={item.id} className="border-b border-line/70 last:border-0 hover:bg-surface-soft/50">
-                          <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[11.5px] font-bold text-ink">{item.student}</p><p className="max-w-[190px] truncate text-[9px] text-subtle" dir="ltr">{item.email}</p></div></div></td>
+                          <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.student}</p><p className="max-w-[190px] truncate text-[10.5px] text-subtle" dir="ltr">{item.email}</p></div></div></td>
                           <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></td>
                           <td className="px-3 py-3.5"><StatusChip status={item.status} /></td>
-                          <td className="px-3 py-3.5 text-[9.5px] text-muted">{formatDate(item.submittedAtUtc)}</td>
-                          <td className="px-3 py-3.5">{item.focusLossDetected ? <Badge tone="warning">خروج مرصود</Badge> : <span className="text-[9px] text-subtle">—</span>}</td>
+                          <td className="px-3 py-3.5 text-[11px] text-muted">{formatDate(item.submittedAtUtc)}</td>
+                          <td className="px-3 py-3.5">{item.focusLossDetected ? <Badge tone="warning">خروج مرصود</Badge> : <span className="text-[11px] text-subtle">—</span>}</td>
                           <td className="px-5 py-3.5"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button><Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة إضافية</Button></div></td>
                         </tr>
                       ))}
@@ -303,9 +303,9 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
                 <div className="grid gap-2.5 p-3 md:hidden">
                   {filtered.map((item) => (
                     <div key={item.id} className="rounded-[13px] border border-line bg-surface-soft/50 p-3.5">
-                      <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[11.5px] font-bold text-ink">{item.student}</p><p className="max-w-[150px] truncate text-[8.5px] text-subtle" dir="ltr">{item.email}</p></div></div><StatusChip status={item.status} /></div>
+                      <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.student}</p><p className="max-w-[150px] truncate text-[10px] text-subtle" dir="ltr">{item.email}</p></div></div><StatusChip status={item.status} /></div>
                       <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[9px] text-subtle">{formatDate(item.submittedAtUtc)}</span><div className="flex gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button><Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة</Button></div></div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><div className="flex gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button><Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة</Button></div></div>
                     </div>
                   ))}
                 </div>
