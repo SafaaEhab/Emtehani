@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Award,
   BookOpen,
+  BookOpenCheck,
   CheckCircle2,
   Clock3,
   FileText,
@@ -28,7 +29,7 @@ import {
 import { request } from '../lib/api';
 import { formatDate, formatNumber, percent, scoreText } from '../lib/format';
 
-export default function StudentDashboard({ token, user, onJoin, onViewResults, onOpenReview }) {
+export default function StudentDashboard({ token, user, onJoin, onBrowse, onViewResults, onOpenReview }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,10 +62,26 @@ export default function StudentDashboard({ token, user, onJoin, onViewResults, o
         eyebrow="مساحة الطالب"
         title={`أهلاً، ${user?.fullName?.split(' ')[0] || 'طالبنا'}.`}
         description="كودك الشخصي لا يتغير: اكتبه في صفحة دخول الامتحان وسنأخذك إلى غرفة الانتظار."
-        action={<Button size="sm" icon={KeyRound} onClick={onJoin}>دخول امتحان</Button>}
+        action={
+          <>
+            <Button variant="secondary" size="sm" icon={KeyRound} onClick={onJoin}>دخول بكود</Button>
+            <Button size="sm" icon={BookOpenCheck} onClick={onBrowse}>الامتحانات المتاحة</Button>
+          </>
+        }
       />
 
       {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
+
+      <Card className="mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-primary-soft text-primary"><BookOpenCheck size={18} /></span>
+          <div>
+            <p className="font-display text-[14px] font-semibold text-ink">الامتحانات المتاحة</p>
+            <p className="mt-1 text-[11.5px] leading-5 text-muted">استعرض كل الامتحانات المنشورة من المدرسين واختر امتحانك القادم دون الحاجة إلى كود.</p>
+          </div>
+        </div>
+        <Button size="sm" iconEnd={ArrowLeft} onClick={onBrowse} className="w-full sm:w-auto">عرض الامتحانات</Button>
+      </Card>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative mb-4 overflow-hidden rounded-card border border-primary/15 bg-primary p-5 text-white shadow-[0_24px_60px_-28px_var(--app-primary)] sm:p-7">
         <div className="pointer-events-none absolute -left-12 -top-16 size-56 rounded-full bg-white/10 blur-2xl" />

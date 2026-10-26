@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   BarChart3,
   BookOpen,
+  BookOpenCheck,
   ClipboardCheck,
   ExternalLink,
   FileText,
@@ -31,6 +32,7 @@ const teacherNav = [
 
 const studentNav = [
   { key: 'dashboard', label: 'نظرة عامة', shortLabel: 'الرئيسية', icon: LayoutDashboard },
+  { key: 'available', label: 'الامتحانات المتاحة', shortLabel: 'المتاحة', icon: BookOpenCheck },
   { key: 'join', label: 'دخول امتحان', shortLabel: 'دخول', icon: Radio },
   { key: 'results', label: 'نتائجي', icon: BarChart3 },
 ];
@@ -44,6 +46,7 @@ const pageMeta = {
   essays: { title: 'مراجعة المقالات', eyebrow: 'تصحيح يدوي' },
   audit: { title: 'سجل النشاط', eyebrow: 'تتبع العمليات' },
   join: { title: 'دخول امتحان', eyebrow: 'بوابة الطالب' },
+  available: { title: 'الامتحانات المتاحة', eyebrow: 'بوابة الطالب' },
   lobby: { title: 'غرفة الانتظار', eyebrow: 'الامتحان' },
   take: { title: 'أداء الامتحان', eyebrow: 'جلسة نشطة' },
   review: { title: 'مراجعة المحاولة', eyebrow: 'النتائج' },

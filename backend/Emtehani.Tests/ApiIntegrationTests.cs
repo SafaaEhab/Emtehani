@@ -230,6 +230,50 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.OK, open.StatusCode);
     }
 
+    private async Task<Guid> CreateCustomExam(HttpClient teacher, string title, int maxAttempts = 1, bool publish = true)
+    {
+        var create = await teacher.PostAsJsonAsync("/api/exams", new
+        {
+            title,
+            description = $"وصف {title}",
+            durationMinutes = 30,
+            maxAttempts,
+            allowResumeAfterFocusLoss = true,
+            questions = new object[]
+            {
+                new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 2 },
+                new { text = "السماء زرقاء", type = "TrueFalse", options = Array.Empty<string>(), correctAnswer = "صح", points = 1 }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var examId = GuidValue((await ReadJson(create))["id"]);
+        if (publish)
+        {
+            var response = await teacher.PutAsync($"/api/exams/{examId}/publish", null);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        return examId;
+    }
+
+    private static async Task<Guid> StartAttempt(HttpClient student, Guid examId)
+    {
+        var start = await student.PostAsync($"/api/exams/{examId}/start", null);
+        Assert.Equal(HttpStatusCode.OK, start.StatusCode);
+        return GuidValue((await ReadJson(start))["id"]);
+    }
+
+    private static async Task SubmitAttempt(HttpClient student, Guid examId, Guid submissionId)
+    {
+        var paper = await student.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/paper");
+        var answers = paper!["questions"]!.AsArray().Select(question => new
+        {
+            questionId = GuidValue(question!["id"]),
+            answerText = question["type"]!.GetValue<string>() == "MultipleChoice" ? "4" : "صح"
+        }).ToArray();
+        var submit = await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit", new { answers, focusLossDetected = false });
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+    }
+
     private static string StudentCode(JsonNode auth) => auth["studentCode"]!.GetValue<string>();
 
     [Fact]
@@ -664,6 +708,110 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var body = await ReadJson(response);
         Assert.Contains("امتحان", body["message"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task AvailableExams_ListsPublishedExamsFromAllTeachers_AndHidesUnavailableOnes()
+    {
+        var (teacherOne, _) = await RegisterAndLogin(Email("available-teacher-one"), "Teacher", "مدرس الرياضيات");
+        var (teacherTwo, _) = await RegisterAndLogin(Email("available-teacher-two"), "Teacher", "مدرس الفيزياء");
+        var (student, _) = await RegisterAndLogin(Email("available-student"), "Student", "طالب الامتحانات المتاحة");
+        var math = await CreateCustomExam(teacherOne, "امتحان الرياضيات");
+        var physics = await CreateCustomExam(teacherTwo, "امتحان الفيزياء");
+        var draft = await CreateCustomExam(teacherOne, "مسودة غير منشورة", publish: false);
+
+        var response = await student.GetAsync("/api/exams/available");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var raw = await response.Content.ReadAsStringAsync();
+        var body = JsonNode.Parse(raw)!;
+        var items = body["items"]!.AsArray();
+        var mathItem = items.Single(x => GuidValue(x!["examId"]) == math)!;
+        var physicsItem = items.Single(x => GuidValue(x!["examId"]) == physics)!;
+        Assert.Equal("مدرس الرياضيات", mathItem["teacherName"]!.GetValue<string>());
+        Assert.Equal("مدرس الفيزياء", physicsItem["teacherName"]!.GetValue<string>());
+        Assert.Equal(2, mathItem["questionCount"]!.GetValue<int>());
+        Assert.DoesNotContain(items, x => GuidValue(x!["examId"]) == draft);
+        Assert.DoesNotContain("joinCode", raw, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("correctAnswer", raw, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("studentCode", raw, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await teacherOne.GetAsync("/api/exams/available")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync("/api/exams/available")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await student.PostAsync($"/api/exams/{draft}/enter", null)).StatusCode);
+
+        var enteredMath = await student.PostAsync($"/api/exams/{math}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, enteredMath.StatusCode);
+        var mathSession = await ReadJson(enteredMath);
+        Assert.Equal("Waiting", mathSession["participantStatus"]!.GetValue<string>());
+        Assert.True(mathSession["submissionId"] is null);
+
+        await OpenExam(teacherOne, math);
+        var mathSubmission = await StartAttempt(student, math);
+        await SubmitAttempt(student, math, mathSubmission);
+
+        var afterMath = await ReadJson(await student.GetAsync("/api/exams/available"));
+        var afterMathItems = afterMath["items"]!.AsArray();
+        Assert.DoesNotContain(afterMathItems, x => GuidValue(x!["examId"]) == math);
+        Assert.Contains(afterMathItems, x => GuidValue(x!["examId"]) == physics);
+        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{math}/enter", null)).StatusCode);
+
+        var close = await teacherTwo.PutAsJsonAsync($"/api/exams/{physics}/state", new { action = "close" });
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+        var afterClose = await ReadJson(await student.GetAsync("/api/exams/available"));
+        Assert.DoesNotContain(afterClose["items"]!.AsArray(), x => GuidValue(x!["examId"]) == physics);
+        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{physics}/enter", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task EnterExamById_ResumesExistingAttempt_AndUsesRemainingAttemptsWithoutDuplication()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("enter-by-id-teacher"), "Teacher", "مدرس الدخول المباشر");
+        var (student, _) = await RegisterAndLogin(Email("enter-by-id-student"), "Student", "طالب الدخول المباشر");
+        var examId = await CreateCustomExam(teacher, "امتحان بمحاولتين", maxAttempts: 2);
+
+        var firstEnterResponse = await student.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, firstEnterResponse.StatusCode);
+        var firstEnter = await ReadJson(firstEnterResponse);
+        Assert.Equal(examId, GuidValue(firstEnter["examId"]));
+        Assert.Equal("Waiting", firstEnter["participantStatus"]!.GetValue<string>());
+        Assert.True(firstEnter["submissionId"] is null);
+
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+        var roster = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/participants");
+        Assert.Equal(1, roster!["total"]!.GetValue<int>());
+
+        await OpenExam(teacher, examId);
+        var firstAttempt = await StartAttempt(student, examId);
+
+        var resumeEnterResponse = await student.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, resumeEnterResponse.StatusCode);
+        var resumeEnter = await ReadJson(resumeEnterResponse);
+        Assert.Equal(firstAttempt, GuidValue(resumeEnter["submissionId"]));
+        Assert.Equal("Active", resumeEnter["participantStatus"]!.GetValue<string>());
+        Assert.True(resumeEnter["remainingSeconds"]!.GetValue<int>() > 0);
+
+        var duplicateStart = await ReadJson(await student.PostAsync($"/api/exams/{examId}/start", null));
+        Assert.Equal(firstAttempt, GuidValue(duplicateStart["id"]));
+
+        await SubmitAttempt(student, examId, firstAttempt);
+        var afterFirstSubmit = await ReadJson(await student.GetAsync("/api/exams/available"));
+        var remainingItem = afterFirstSubmit["items"]!.AsArray().Single(x => GuidValue(x!["examId"]) == examId)!;
+        Assert.Equal(1, remainingItem["attemptsUsed"]!.GetValue<int>());
+        Assert.Equal(1, remainingItem["attemptsRemaining"]!.GetValue<int>());
+        Assert.False(remainingItem["hasActiveAttempt"]!.GetValue<bool>());
+
+        var nextEnter = await ReadJson(await student.PostAsync($"/api/exams/{examId}/enter", null));
+        Assert.Equal("Waiting", nextEnter["participantStatus"]!.GetValue<string>());
+        Assert.True(nextEnter["submissionId"] is null);
+
+        var secondAttempt = await StartAttempt(student, examId);
+        Assert.NotEqual(firstAttempt, secondAttempt);
+        await SubmitAttempt(student, examId, secondAttempt);
+
+        var exhausted = await ReadJson(await student.GetAsync("/api/exams/available"));
+        Assert.DoesNotContain(exhausted["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+        var rejected = await student.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
     }
 
     [Fact]

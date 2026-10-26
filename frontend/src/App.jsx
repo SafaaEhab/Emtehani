@@ -15,6 +15,7 @@ import ResultsPage from './pages/ResultsPage';
 import EssaysPage from './pages/EssaysPage';
 import AuditPage from './pages/AuditPage';
 import JoinExamPage from './pages/JoinExamPage';
+import AvailableExamsPage from './pages/AvailableExamsPage';
 import LobbyPage from './pages/LobbyPage';
 import ExamRoomPage from './pages/ExamRoomPage';
 import ReviewDetailPage from './pages/ReviewDetailPage';
@@ -33,6 +34,7 @@ const teacherTitles = {
 
 const studentTitles = {
   dashboard: 'نظرة عامة',
+  available: 'الامتحانات المتاحة',
   join: 'دخول امتحان',
   results: 'نتائجي',
 };
@@ -320,7 +322,9 @@ export default function App() {
   if (page === 'dashboard') {
     content = isTeacher
       ? <TeacherDashboard token={token} user={user} onNavigate={navigate} onCreate={() => setPage('create')} onOpenExam={openExam} />
-      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
+      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onBrowse={() => setPage('available')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
+  } else if (page === 'available' && !isTeacher) {
+    content = <AvailableExamsPage token={token} onEnter={joinedExam} onJoinCode={() => setPage('join')} />;
   } else if (page === 'exams') {
     content = <ExamsPage token={token} onOpenExam={openExam} onCreate={() => setPage('create')} />;
   } else if (page === 'create') {
@@ -342,7 +346,7 @@ export default function App() {
   } else {
     content = isTeacher
       ? <TeacherDashboard token={token} user={user} onNavigate={navigate} onCreate={() => setPage('create')} onOpenExam={openExam} />
-      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
+      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onBrowse={() => setPage('available')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
   }
 
   return (
