@@ -3,6 +3,7 @@ import {
   apiJson,
   apiResponse,
   createExam,
+  enrollStudent,
   getSubmissionReview,
   openAppNav,
   registerAndLogin,
@@ -17,6 +18,7 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   const questionText = `ما ناتج 2 + 2؟ ${suffix}`;
   const teacher = await registerAndLogin(request, 'Teacher', 'مدرس دورة');
   const student = await registerAndLogin(request, 'Student', 'طالب دورة');
+  await enrollStudent(request, teacher, student);
   const exam = await createExam(request, teacher.token, {
     questions: [{
       text: questionText,
@@ -34,7 +36,7 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   const examRow = page.getByRole('row').filter({ hasText: exam.title });
   await examRow.getByRole('button', { name: 'إدارة الامتحان', exact: true }).click();
   await expect(page.getByRole('button', { name: 'فتح الجلسة', exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText(code, { exact: true }).first()).toBeVisible();
+  // The participant code becomes visible after the student joins; the export below verifies it.
 
   const studentContext = await browser.newContext({
     baseURL: new URL(page.url()).origin,

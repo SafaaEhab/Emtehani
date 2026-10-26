@@ -262,17 +262,37 @@ static long SubmissionLockKey(Guid submissionId)
 }
 async Task AcquireSubmissionLock(AppDbContext db, Guid submissionId)
 {
-    if (!db.Database.IsNpgsql()) return;
-    var key = SubmissionLockKey(submissionId);
-    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({key})");
+    if (db.Database.IsNpgsql())
+    {
+        var key = SubmissionLockKey(submissionId);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({key})");
+        return;
+    }
+
+    if (db.Database.IsSqlServer())
+    {
+        var resource = $"submission:{submissionId}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            DECLARE @result int;
+            EXEC @result = sp_getapplock
+                @Resource = {resource},
+                @LockMode = 'Exclusive',
+                @LockOwner = 'Transaction',
+                @LockTimeout = 30000;
+            IF @result < 0
+                THROW 51000, 'Could not acquire the submission lock.', 1;
+            """);
+    }
 }
 static int? RemainingSeconds(Submission? submission, Exam exam, DateTime now)
 {
     if (submission is null) return null;
     if (submission.Status != "InProgress") return 0;
     var reference = exam.Status == "Paused" && exam.PausedAtUtc.HasValue ? exam.PausedAtUtc.Value : now;
-    return Math.Max(0, (int)(ExamGrader.Deadline(submission, exam.DurationMinutes) - reference).TotalSeconds);
+    return Math.Max(0, (int)(ExamGrader.Deadline(submission, exam.DurationMinutes, exam.AvailableUntilUtc) - reference).TotalSeconds);
 }
+async Task<bool> IsEnrolled(AppDbContext db, Guid teacherId, Guid studentId) =>
+    await db.TeacherStudentRequests.AnyAsync(x => x.TeacherId == teacherId && x.StudentId == studentId && x.Status == "Accepted");
 async Task CloseExam(AppDbContext db, Exam exam, DateTime now)
 {
     await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
@@ -355,12 +375,20 @@ async Task FinalizeExpired(AppDbContext db)
 {
     const int FinalizeGraceMinutes = 5;
     var now = DateTime.UtcNow;
-    var expiredIds = await db.Submissions
+    var candidates = await db.Submissions
         .AsNoTracking()
-        .Where(x => x.Status == "InProgress" && x.Exam != null
-            && now >= x.StartedAtUtc.AddMinutes(x.Exam.DurationMinutes + FinalizeGraceMinutes))
-        .Select(x => x.Id)
+        .Where(x => x.Status == "InProgress" && x.Exam != null)
+        .Select(x => new { x.Id, x.StartedAtUtc, x.ExtraTimeSeconds, x.Exam!.DurationMinutes, x.Exam.AvailableUntilUtc })
         .ToListAsync();
+    var expiredIds = candidates
+        .Where(x =>
+        {
+            var effective = ExamGrader.Deadline(new Submission { StartedAtUtc = x.StartedAtUtc, ExtraTimeSeconds = x.ExtraTimeSeconds }, x.DurationMinutes, x.AvailableUntilUtc);
+            var cappedByWindow = x.AvailableUntilUtc.HasValue && effective == x.AvailableUntilUtc.Value;
+            return now >= effective.AddMinutes(cappedByWindow ? 0 : FinalizeGraceMinutes);
+        })
+        .Select(x => x.Id)
+        .ToList();
     if (expiredIds.Count == 0) return;
     await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
     foreach (var submissionId in expiredIds)
@@ -371,8 +399,9 @@ async Task FinalizeExpired(AppDbContext db)
             .Include(x => x.Exam)
             .FirstOrDefaultAsync(x => x.Id == submissionId && x.Status == "InProgress");
         if (submission?.Exam is null) continue;
-        var deadline = ExamGrader.Deadline(submission, submission.Exam.DurationMinutes);
-        if (now < deadline.AddMinutes(FinalizeGraceMinutes)) continue;
+        var deadline = ExamGrader.Deadline(submission, submission.Exam.DurationMinutes, submission.Exam.AvailableUntilUtc);
+        var cappedByWindow = submission.Exam.AvailableUntilUtc.HasValue && deadline == submission.Exam.AvailableUntilUtc.Value;
+        if (now < deadline.AddMinutes(cappedByWindow ? 0 : FinalizeGraceMinutes)) continue;
         var questions = await db.Questions.AsNoTracking().Where(x => x.ExamId == submission.ExamId).ToListAsync();
         ExamGrader.Grade(submission, questions);
         submission.SubmittedAtUtc = deadline;
@@ -497,6 +526,10 @@ app.MapPost("/api/exams", async (ExamCreateRequest req, ClaimsPrincipal p, AppDb
 {
   if (req is null || req.Questions is null || req.Questions.Count == 0 || req.DurationMinutes < 1 || req.DurationMinutes > 300 || req.MaxAttempts < 1 || req.MaxAttempts > 20 || string.IsNullOrWhiteSpace(req.Title))
     return Results.BadRequest(new { message = "بيانات الامتحان غير مكتملة أو المدة خارج النطاق." });
+  var availableFrom = req.AvailableFromUtc?.ToUniversalTime();
+  var availableUntil = req.AvailableUntilUtc?.ToUniversalTime();
+  if (availableFrom.HasValue && availableUntil.HasValue && availableUntil <= availableFrom)
+    return Results.BadRequest(new { message = "نهاية فترة الإتاحة يجب أن تكون بعد بدايتها." });
   var validTypes = new[] { "MultipleChoice", "TrueFalse", "ShortAnswer", "Essay", "FillBlank", "Matching" };
   if (req.Questions.Any(q => q is null || string.IsNullOrWhiteSpace(q.Text) || q.Points <= 0 || string.IsNullOrWhiteSpace(q.Type) || !validTypes.Contains(q.Type) ||
     (q.Type == "MultipleChoice" && ((q.Options?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0) < 2 || string.IsNullOrWhiteSpace(q.CorrectAnswer) || !(q.Options ?? []).Contains(q.CorrectAnswer, StringComparer.OrdinalIgnoreCase))) ||
@@ -507,8 +540,8 @@ app.MapPost("/api/exams", async (ExamCreateRequest req, ClaimsPrincipal p, AppDb
   if (p.FindFirstValue(ClaimTypes.Role) != "Teacher") return Results.Forbid();
   if (!Guid.TryParse(UserId(p), out var uid)) return Results.Unauthorized();
   var code = RandomNumberGenerator.GetInt32(100000, 1_000_000).ToString(); while (await db.Exams.AnyAsync(x => x.JoinCode == code)) code = RandomNumberGenerator.GetInt32(100000, 1_000_000).ToString();
-  var e = new Exam { TeacherId = uid, Title = req.Title.Trim(), Description = req.Description, DurationMinutes = req.DurationMinutes, MaxAttempts = Math.Clamp(req.MaxAttempts, 1, 20), AllowResumeAfterFocusLoss = req.AllowResumeAfterFocusLoss, JoinCode = code, ScheduledAtUtc = req.ScheduledAtUtc?.ToUniversalTime(), Status = "Draft", Questions = req.Questions.Select((q, i) => new Question { Text = q.Text, Type = q.Type, OptionsJson = JsonSerializer.Serialize(q.Options ?? []), CorrectAnswer = q.Type == "Matching" ? string.Join(",", Enumerable.Range(0, q.Options?.Length ?? 0)) : q.CorrectAnswer, Points = q.Points, SortOrder = i }).ToList() };
-  db.Exams.Add(e); await db.SaveChangesAsync(); await Audit(db, uid, "exam.created", "Exam", e.Id.ToString()); return Results.Created($"/api/exams/{e.Id}", new { e.Id, e.Title, e.Description, e.DurationMinutes, e.JoinCode, e.IsPublished, e.Status, e.ScheduledAtUtc, questionCount = e.Questions.Count });
+  var e = new Exam { TeacherId = uid, Title = req.Title.Trim(), Description = req.Description, DurationMinutes = req.DurationMinutes, MaxAttempts = Math.Clamp(req.MaxAttempts, 1, 20), AllowResumeAfterFocusLoss = req.AllowResumeAfterFocusLoss, JoinCode = code, ScheduledAtUtc = req.ScheduledAtUtc?.ToUniversalTime(), AvailableFromUtc = availableFrom, AvailableUntilUtc = availableUntil, Status = "Draft", Questions = req.Questions.Select((q, i) => new Question { Text = q.Text, Type = q.Type, OptionsJson = JsonSerializer.Serialize(q.Options ?? []), CorrectAnswer = q.Type == "Matching" ? string.Join(",", Enumerable.Range(0, q.Options?.Length ?? 0)) : q.CorrectAnswer, Points = q.Points, SortOrder = i }).ToList() };
+  db.Exams.Add(e); await db.SaveChangesAsync(); await Audit(db, uid, "exam.created", "Exam", e.Id.ToString()); return Results.Created($"/api/exams/{e.Id}", new { e.Id, e.Title, e.Description, e.DurationMinutes, e.JoinCode, e.IsPublished, e.Status, e.ScheduledAtUtc, e.AvailableFromUtc, e.AvailableUntilUtc, questionCount = e.Questions.Count });
 }).RequireAuthorization().RequireRateLimiting("api");
 app.MapGet("/api/exams", async (ClaimsPrincipal p, AppDbContext db, string? search, string? status, int page = 1, int pageSize = 10) =>
 {
@@ -525,12 +558,15 @@ if (p.FindFirstValue(ClaimTypes.Role) == "Teacher")
 }
 else
 {
-    q = q.Where(x => x.IsPublished);
+    if (!Guid.TryParse(userId, out var studentId2)) return Results.Unauthorized();
+    q = q.Where(x => x.IsPublished &&
+        (db.TeacherStudentRequests.Any(r => r.TeacherId == x.TeacherId && r.StudentId == studentId2 && r.Status == "Accepted")
+         || x.Participants.Any(pp => pp.StudentId == studentId2)));
 }
   if (!string.IsNullOrWhiteSpace(search)) q = q.Where(x => x.Title.Contains(search));
   if (!string.IsNullOrWhiteSpace(status) && status != "All") q = q.Where(x => x.Status == status);
   var total = await q.CountAsync(); var canSeeJoinCode = p.FindFirstValue(ClaimTypes.Role) == "Teacher";
-  var items = await q.OrderByDescending(x => x.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).Select(x => new { x.Id, x.Title, x.Description, x.DurationMinutes, x.MaxAttempts, x.AllowResumeAfterFocusLoss, TeacherName = db.Users.Where(u => u.Id == x.TeacherId).Select(u => u.FullName).FirstOrDefault(), JoinCode = canSeeJoinCode ? x.JoinCode : null, x.IsPublished, x.Status, x.ScheduledAtUtc, x.CreatedAtUtc, QuestionCount = x.Questions.Count, ParticipantCount = x.Participants.Count }).ToListAsync();
+  var items = await q.OrderByDescending(x => x.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).Select(x => new { x.Id, x.Title, x.Description, x.DurationMinutes, x.MaxAttempts, x.AllowResumeAfterFocusLoss, TeacherName = db.Users.Where(u => u.Id == x.TeacherId).Select(u => u.FullName).FirstOrDefault(), JoinCode = canSeeJoinCode ? x.JoinCode : null, x.IsPublished, x.Status, x.ScheduledAtUtc, x.AvailableFromUtc, x.AvailableUntilUtc, x.CreatedAtUtc, QuestionCount = x.Questions.Count, ParticipantCount = x.Participants.Count }).ToListAsync();
   return Results.Ok(new { items, page, pageSize, total });
 }).RequireAuthorization();
 app.MapGet("/api/exams/{id:guid}", async (Guid id, ClaimsPrincipal p, AppDbContext db) =>
@@ -544,12 +580,13 @@ app.MapGet("/api/exams/{id:guid}", async (Guid id, ClaimsPrincipal p, AppDbConte
     {
         if (!exam.IsPublished) return Results.NotFound();
         var joined = await db.ExamParticipants.AnyAsync(x => x.ExamId == id && x.StudentId == userId && x.Status != "Invited");
-        if (!joined) return Results.Forbid();
+        var enrolled = await IsEnrolled(db, exam.TeacherId, userId);
+        if (!joined && !enrolled) return Results.Forbid();
     }
     return Results.Ok(new
     {
         exam.Id, exam.Title, exam.Description, exam.DurationMinutes, exam.MaxAttempts,
-        exam.AllowResumeAfterFocusLoss, exam.IsPublished, exam.Status, exam.ScheduledAtUtc, exam.CreatedAtUtc,
+        exam.AllowResumeAfterFocusLoss, exam.IsPublished, exam.Status, exam.ScheduledAtUtc, exam.AvailableFromUtc, exam.AvailableUntilUtc, exam.CreatedAtUtc,
         JoinCode = role == "Teacher" ? exam.JoinCode : null,
         QuestionCount = await db.Questions.CountAsync(x => x.ExamId == id),
         ParticipantCount = await db.ExamParticipants.CountAsync(x => x.ExamId == id)
@@ -574,6 +611,84 @@ app.MapPut("/api/exams/{id:guid}/publish", async (Guid id, ClaimsPrincipal p, Ap
     await db.SaveChangesAsync();
     await Audit(db, teacherId, exam.IsPublished ? "exam.published" : "exam.unpublished", "Exam", id.ToString());
     return Results.Ok(new { exam.Id, exam.IsPublished, exam.Status, exam.JoinCode });
+}).RequireAuthorization();
+
+app.MapPut("/api/exams/{id:guid}/availability", async (Guid id, ExamAvailabilityRequest req, ClaimsPrincipal p, AppDbContext db) =>
+{
+    if (p.FindFirstValue(ClaimTypes.Role) != "Teacher") return Results.Forbid();
+    if (!Guid.TryParse(UserId(p), out var teacherId)) return Results.Unauthorized();
+    var exam = await db.Exams.FirstOrDefaultAsync(x => x.Id == id && x.TeacherId == teacherId);
+    if (exam is null) return Results.NotFound();
+    var from = req?.AvailableFromUtc?.ToUniversalTime();
+    var until = req?.AvailableUntilUtc?.ToUniversalTime();
+    if (from.HasValue && until.HasValue && until <= from)
+        return Results.BadRequest(new { message = "نهاية فترة الإتاحة يجب أن تكون بعد بدايتها." });
+    exam.AvailableFromUtc = from;
+    exam.AvailableUntilUtc = until;
+    await db.SaveChangesAsync();
+    await Audit(db, teacherId, "exam.availability.updated", "Exam", id.ToString());
+    return Results.Ok(new { exam.Id, exam.AvailableFromUtc, exam.AvailableUntilUtc });
+}).RequireAuthorization();
+
+// --- Student/teacher enrollment ---
+app.MapGet("/api/teachers", async (ClaimsPrincipal p, AppDbContext db) =>
+{
+    if (p.FindFirstValue(ClaimTypes.Role) != "Student") return Results.Forbid();
+    if (!Guid.TryParse(UserId(p), out var studentId)) return Results.Unauthorized();
+    var teachers = await db.Users.AsNoTracking().Where(t => t.Role == "Teacher" && t.EmailConfirmed)
+        .Select(t => new { t.Id, t.FullName, ExamCount = db.Exams.Count(e => e.TeacherId == t.Id && e.IsPublished) })
+        .ToListAsync();
+    var requests = await db.TeacherStudentRequests.AsNoTracking()
+        .Where(r => r.StudentId == studentId)
+        .Select(r => new { r.TeacherId, r.Status })
+        .ToListAsync();
+    var map = requests.GroupBy(r => r.TeacherId).ToDictionary(g => g.Key, g => g.OrderByDescending(_ => _.Status == "Accepted").First().Status);
+    return Results.Ok(teachers.Select(t => new { t.Id, t.FullName, t.ExamCount, RequestStatus = map.TryGetValue(t.Id, out var s) ? s : null }));
+}).RequireAuthorization();
+
+app.MapPost("/api/teachers/{teacherId:guid}/request", async (Guid teacherId, ClaimsPrincipal p, AppDbContext db) =>
+{
+    if (p.FindFirstValue(ClaimTypes.Role) != "Student") return Results.Forbid();
+    if (!Guid.TryParse(UserId(p), out var studentId)) return Results.Unauthorized();
+    var teacher = await db.Users.FirstOrDefaultAsync(t => t.Id == teacherId && t.Role == "Teacher" && t.EmailConfirmed);
+    if (teacher is null) return Results.NotFound(new { message = "المدرس غير موجود." });
+    var existing = await db.TeacherStudentRequests.FirstOrDefaultAsync(r => r.TeacherId == teacherId && r.StudentId == studentId);
+    if (existing is not null)
+        return existing.Status == "Rejected"
+            ? Results.Conflict(new { message = "تم رفض طلبك سابقاً. تواصل مع المدرس." })
+            : Results.Conflict(new { message = "لديك طلب تسجيل بالفعل مع هذا المدرس.", status = existing.Status });
+    db.TeacherStudentRequests.Add(new TeacherStudentRequest { TeacherId = teacherId, StudentId = studentId });
+    await db.SaveChangesAsync();
+    await Audit(db, studentId, "teacher.request.created", "TeacherStudentRequest", teacherId.ToString());
+    return Results.Ok(new { message = "تم إرسال طلب التسجيل. انتظر موافقة المدرس.", status = "Pending" });
+}).RequireAuthorization().RequireRateLimiting("api");
+
+app.MapGet("/api/teacher/requests", async (ClaimsPrincipal p, AppDbContext db) =>
+{
+    if (p.FindFirstValue(ClaimTypes.Role) != "Teacher") return Results.Forbid();
+    if (!Guid.TryParse(UserId(p), out var teacherId)) return Results.Unauthorized();
+    var rows = await db.TeacherStudentRequests.AsNoTracking()
+        .Where(r => r.TeacherId == teacherId)
+        .OrderByDescending(r => r.CreatedAtUtc)
+        .Select(r => new { r.Id, r.Status, r.CreatedAtUtc, r.DecidedAtUtc, StudentName = r.Student!.FullName, StudentEmail = r.Student.Email })
+        .ToListAsync();
+    return Results.Ok(rows);
+}).RequireAuthorization();
+
+app.MapPut("/api/teacher/requests/{id:guid}", async (Guid id, TeacherJoinDecisionRequest req, ClaimsPrincipal p, AppDbContext db) =>
+{
+    if (p.FindFirstValue(ClaimTypes.Role) != "Teacher") return Results.Forbid();
+    if (!Guid.TryParse(UserId(p), out var teacherId)) return Results.Unauthorized();
+    var action = (req?.Action ?? "").Trim().ToLowerInvariant();
+    if (action is not ("accept" or "reject")) return Results.BadRequest(new { message = "إجراء غير معروف." });
+    var request = await db.TeacherStudentRequests.FirstOrDefaultAsync(r => r.Id == id && r.TeacherId == teacherId);
+    if (request is null) return Results.NotFound();
+    if (request.Status != "Pending") return Results.Conflict(new { message = "تم البت في هذا الطلب مسبقاً." });
+    request.Status = action == "accept" ? "Accepted" : "Rejected";
+    request.DecidedAtUtc = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    await Audit(db, teacherId, $"teacher.request.{request.Status.ToLowerInvariant()}", "TeacherStudentRequest", id.ToString());
+    return Results.Ok(new { request.Id, request.Status });
 }).RequireAuthorization();
 
 app.MapGet("/api/teacher/overview", async (ClaimsPrincipal p, AppDbContext db) =>
@@ -744,7 +859,8 @@ app.MapPost("/api/exams/enter-code", async (StudentCodeRequest req, ClaimsPrinci
     if (ownPermanentCode)
     {
         var publishedExam = await db.Exams
-            .Where(x => x.IsPublished && x.Status != "Draft" && x.Status != "Finished")
+            .Where(x => x.IsPublished && x.Status != "Draft" && x.Status != "Finished"
+                && db.TeacherStudentRequests.Any(r => r.TeacherId == x.TeacherId && r.StudentId == studentId && r.Status == "Accepted"))
             .OrderByDescending(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync();
         if (publishedExam is null) return Results.Conflict(new { message = "لا يوجد امتحان منشور متاح حالياً." });
@@ -790,6 +906,8 @@ app.MapPost("/api/exams/enter-code", async (StudentCodeRequest req, ClaimsPrinci
         return Results.Conflict(new { message = "لم يبدأ الامتحان بعد. انتظر تعليمات المدرس." });
     if (exam.Status == "Finished")
         return Results.Conflict(new { message = "انتهت جلسة هذا الامتحان. تواصل مع المدرس." });
+    if (!await IsEnrolled(db, exam.TeacherId, studentId))
+        return Results.Forbid();
     var now = DateTime.UtcNow;
     participant.JoinedAtUtc ??= now;
     participant.LastSeenAtUtc = now;
@@ -817,8 +935,11 @@ app.MapGet("/api/exams/available", async (ClaimsPrincipal p, AppDbContext db) =>
 
     // Only published, non-draft, non-finished exams are discoverable. Draft/unpublished exams
     // must never appear here, and no join codes or answer keys are included in the payload.
+    // Students only see exams for teachers they are enrolled with (or exams they already joined).
     var exams = await db.Exams.AsNoTracking()
-        .Where(x => x.IsPublished && x.Status != "Draft" && x.Status != "Finished")
+        .Where(x => x.IsPublished && x.Status != "Draft" && x.Status != "Finished"
+            && (db.TeacherStudentRequests.Any(r => r.TeacherId == x.TeacherId && r.StudentId == studentId && r.Status == "Accepted")
+                || x.Participants.Any(pp => pp.StudentId == studentId)))
         .OrderByDescending(x => x.Status == "Active" || x.Status == "Paused")
         .ThenBy(x => x.ScheduledAtUtc ?? x.CreatedAtUtc)
         .Select(x => new
@@ -830,6 +951,8 @@ app.MapGet("/api/exams/available", async (ClaimsPrincipal p, AppDbContext db) =>
             x.MaxAttempts,
             x.Status,
             x.ScheduledAtUtc,
+            x.AvailableFromUtc,
+            x.AvailableUntilUtc,
             x.PausedAtUtc,
             x.CreatedAtUtc,
             TeacherName = db.Users.Where(u => u.Id == x.TeacherId).Select(u => u.FullName).FirstOrDefault(),
@@ -907,6 +1030,11 @@ app.MapPost("/api/exams/{id:guid}/enter", async (Guid id, ClaimsPrincipal p, App
         return Results.NotFound(new { message = "الامتحان غير متاح أو لم يُنشر بعد." });
     if (exam.Status == "Finished")
         return Results.Conflict(new { message = "انتهت جلسة هذا الامتحان. تواصل مع المدرس." });
+
+    var enrolledForExam = await IsEnrolled(db, exam.TeacherId, studentId);
+    var existingParticipant = await db.ExamParticipants.AnyAsync(x => x.ExamId == id && x.StudentId == studentId);
+    if (!enrolledForExam && !existingParticipant)
+        return Results.Forbid();
 
     var submissions = await db.Submissions.AsNoTracking()
         .Where(x => x.ExamId == id && x.StudentId == studentId)
@@ -997,6 +1125,7 @@ app.MapGet("/api/exams/{id:guid}/session", async (Guid id, ClaimsPrincipal p, Ap
     if (participant?.Exam is null) return Results.Forbid();
     if (participant.Status == "Invited") return Results.Conflict(new { message = "أدخل كود الطالب أولاً." });
     var exam = participant.Exam;
+    if (!await IsEnrolled(db, exam.TeacherId, studentId)) return Results.Forbid();
     var now = DateTime.UtcNow;
     participant.LastSeenAtUtc = now;
     await db.SaveChangesAsync();
@@ -1022,6 +1151,7 @@ app.MapGet("/api/exams/{id:guid}/paper", async (Guid id, ClaimsPrincipal p, AppD
     if (exam.Status == "Finished") return Results.Conflict(new { message = "انتهت جلسة الامتحان." });
     var participant = await db.ExamParticipants.FirstOrDefaultAsync(x => x.ExamId == id && x.StudentId == studentId);
     if (participant is null || participant.Status == "Invited") return Results.Forbid();
+    if (!await IsEnrolled(db, exam.TeacherId, studentId)) return Results.Forbid();
     var submission = await db.Submissions.Include(x => x.Answers).FirstOrDefaultAsync(x => x.ExamId == id && x.StudentId == studentId && x.Status == "InProgress");
     if (submission is null) return Results.Conflict(new { message = "لا توجد محاولة نشطة لهذا الامتحان. ابدأ المحاولة من غرفة الانتظار." });
     var now = DateTime.UtcNow;
@@ -1090,7 +1220,12 @@ app.MapPost("/api/exams/{id:guid}/start", async (Guid id, ClaimsPrincipal p, App
   var participant = await db.ExamParticipants.FirstOrDefaultAsync(x => x.ExamId == id && x.StudentId == uid);
   if (participant is null || participant.Status == "Invited")
     return Results.Forbid();
+  if (!await IsEnrolled(db, e.TeacherId, uid)) return Results.Forbid();
   var now = DateTime.UtcNow;
+  if (e.AvailableFromUtc.HasValue && now < e.AvailableFromUtc.Value)
+    return Results.Conflict(new { message = "لم يحن وقت إتاحة هذا الامتحان بعد. حاول في الموعد المحدد." });
+  if (e.AvailableUntilUtc.HasValue && now >= e.AvailableUntilUtc.Value)
+    return Results.Conflict(new { message = "انتهت فترة إتاحة هذا الامتحان ولا يمكن بدء محاولة جديدة." });
   var existing = await db.Submissions.FirstOrDefaultAsync(s => s.ExamId == id && s.StudentId == uid && s.Status == "InProgress");
   if (existing is not null)
   {
@@ -1128,10 +1263,10 @@ app.MapPut("/api/submissions/{id:guid}/answers", async (Guid id, SubmitRequest r
   var sub = await db.Submissions.Include(s => s.Answers).FirstOrDefaultAsync(s => s.Id == id && s.StudentId == uid);
   if (sub is null) return Results.NotFound();
   if (sub.Status != "InProgress") return Results.Conflict(new { message = "تم تسليم هذه المحاولة بالفعل؛ لم يعد حفظ الإجابات متاحاً." });
-  var examInfo = await db.Exams.Where(e => e.Id == sub.ExamId).Select(e => new { e.DurationMinutes, e.Status }).FirstOrDefaultAsync();
+  var examInfo = await db.Exams.Where(e => e.Id == sub.ExamId).Select(e => new { e.DurationMinutes, e.Status, e.AvailableUntilUtc }).FirstOrDefaultAsync();
   if (examInfo is null) return Results.NotFound();
   if (examInfo.Status is "Paused" or "Finished") return Results.Conflict(new { message = examInfo.Status == "Paused" ? "الامتحان متوقف مؤقتاً. ستُستأنف الجلسة عند سماح المدرس." : "انتهت الجلسة؛ لم تعد الإجابات قابلة للتعديل." });
-  if (DateTime.UtcNow >= ExamGrader.Deadline(sub, examInfo.DurationMinutes)) return Results.BadRequest(new { message = "انتهى وقت الامتحان؛ تم إيقاف حفظ الإجابات الجديدة." });
+  if (DateTime.UtcNow >= ExamGrader.Deadline(sub, examInfo.DurationMinutes, examInfo.AvailableUntilUtc)) return Results.BadRequest(new { message = "انتهى وقت الامتحان؛ تم إيقاف حفظ الإجابات الجديدة." });
   if (req.FocusLossDetected && !sub.FocusLossDetected) { sub.FocusLossCount++; sub.FocusLossDetected = true; }
   var validQuestionIds = await db.Questions.Where(q => q.ExamId == sub.ExamId).Select(q => q.Id).ToListAsync();
   foreach (var a in (req.Answers ?? []).Where(a => validQuestionIds.Contains(a.QuestionId)).GroupBy(a => a.QuestionId).Select(g => g.Last()))
@@ -1166,8 +1301,9 @@ app.MapPost("/api/submissions/{id:guid}/submit", async (Guid id, SubmitRequest? 
   }
   var sub = await db.Submissions.Include(s => s.Answers).FirstOrDefaultAsync(s => s.Id == id && s.StudentId == uid);
   if (sub is null) return Results.NotFound();
-  var duration = await db.Exams.Where(e => e.Id == sub.ExamId).Select(e => e.DurationMinutes).FirstOrDefaultAsync();
-  var deadline = ExamGrader.Deadline(sub, duration);
+  var timing = await db.Exams.Where(e => e.Id == sub.ExamId).Select(e => new { e.DurationMinutes, e.AvailableUntilUtc }).FirstOrDefaultAsync();
+  if (timing is null) return Results.NotFound();
+  var deadline = ExamGrader.Deadline(sub, timing.DurationMinutes, timing.AvailableUntilUtc);
   var isLate = DateTime.UtcNow >= deadline;
   var qs = await db.Questions.Where(q => q.ExamId == sub.ExamId).ToListAsync();
   // Accept the client's latest draft only before the deadline. A late request must not change answers.
@@ -1255,7 +1391,15 @@ app.MapPut("/api/submissions/{id:guid}/answers/{answerId:guid}/grade", async (Gu
   if (exam is null) return Results.Forbid();
   if (sub.Status is not ("NeedsReview" or "Reviewed")) return Results.BadRequest(new { message = "لا يمكن تعديل درجة محاولة غير مسلّمة." });
   var a = sub.Answers.FirstOrDefault(x => x.Id == answerId && x.SubmissionId == id);
-  if (a is null) return Results.NotFound();
+  if (a is null)
+  {
+    // Repair legacy submissions whose essay answer row was never materialised.
+    var questionList = await db.Questions.Where(x => x.ExamId == sub.ExamId).ToListAsync();
+    ExamGrader.EnsureAnswers(sub, questionList);
+    await db.SaveChangesAsync();
+    a = sub.Answers.FirstOrDefault(x => x.Id == answerId && x.SubmissionId == id);
+  }
+  if (a is null) return Results.NotFound(new { message = "لم نعثر على إجابة هذا السؤال في المحاولة." });
   var q = await db.Questions.FirstOrDefaultAsync(x => x.Id == a.QuestionId && x.ExamId == sub.ExamId);
   if (q is null) return Results.NotFound();
   if (q.Type != "Essay") return Results.BadRequest(new { message = "يمكن تصحيح الأسئلة المقالية فقط." });
@@ -1266,7 +1410,8 @@ app.MapPut("/api/submissions/{id:guid}/answers/{answerId:guid}/grade", async (Gu
   sub.Score = sub.Answers.Sum(x => x.AwardedPoints ?? 0);
   sub.MaxScore = await db.Questions.Where(x => x.ExamId == sub.ExamId).SumAsync(x => x.Points);
   var essayQuestionIds = await db.Questions.Where(x => x.ExamId == sub.ExamId && x.Type == "Essay").Select(x => x.Id).ToListAsync();
-  sub.Status = sub.Answers.Any(x => essayQuestionIds.Contains(x.QuestionId) && x.AwardedPoints == null) ? "NeedsReview" : "Reviewed";
+  var gradedIds = sub.Answers.Where(x => x.AwardedPoints != null).Select(x => x.QuestionId).ToHashSet();
+  sub.Status = essayQuestionIds.Any(qid => !gradedIds.Contains(qid)) ? "NeedsReview" : "Reviewed";
   await db.SaveChangesAsync();
   await tx.CommitAsync();
   await Audit(db, teacherId, "essay.graded", "Submission", id.ToString(), $"old={previousPoints}; new={req.AwardedPoints}");
@@ -1384,6 +1529,7 @@ app.MapGet("/api/submissions/{id:guid}/review", async (Guid id, ClaimsPrincipal 
   if (sub is null) return Results.NotFound(new { message = "المحاولة المطلوبة غير موجودة." });
   if (role == "Student" ? sub.StudentId != uid : sub.Exam!.TeacherId != uid) return Results.Forbid();
   var qs = await db.Questions.Where(q => q.ExamId == sub.ExamId).OrderBy(q => q.SortOrder).ToListAsync();
+  if (role == "Teacher") { ExamGrader.EnsureAnswers(sub, qs); await db.SaveChangesAsync(); }
   var elapsed = (int)((sub.SubmittedAtUtc ?? DateTime.UtcNow) - sub.StartedAtUtc).TotalSeconds;
   var showScore = role == "Teacher" || sub.Status is "Submitted" or "NeedsReview" or "Reviewed";
   return Results.Ok(new { sub.Id, sub.ExamId, ExamTitle = sub.Exam!.Title, TeacherName = await db.Users.Where(u => u.Id == sub.Exam.TeacherId).Select(u => u.FullName).FirstOrDefaultAsync(), StudentName = sub.Student!.FullName, sub.Status, Score = showScore ? sub.Score : (decimal?)null, MaxScore = showScore ? sub.MaxScore : (decimal?)null, sub.StartedAtUtc, sub.SubmittedAtUtc, DurationSeconds = elapsed, sub.AttemptNumber, sub.FocusLossCount, sub.CopyAttemptCount, sub.ScreenshotAttemptCount, Answers = qs.Select(q => { var a = sub.Answers.FirstOrDefault(x => x.QuestionId == q.Id); return new { Id = a?.Id, QuestionId = q.Id, q.Text, q.Type, Options = JsonSerializer.Deserialize<string[]>(q.OptionsJson), CorrectAnswer = showScore ? q.CorrectAnswer : null, q.Points, StudentAnswer = a?.AnswerText ?? "", AwardedPoints = showScore ? a?.AwardedPoints : null, a?.TeacherFeedback }; }) });

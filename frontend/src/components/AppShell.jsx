@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   ExternalLink,
   FileText,
+  GraduationCap,
   History,
   LayoutDashboard,
   LifeBuoy,
@@ -27,6 +28,7 @@ const teacherNav = [
   { key: 'create', label: 'إنشاء امتحان', shortLabel: 'إنشاء', icon: PlusCircle },
   { key: 'results', label: 'النتائج', icon: BarChart3 },
   { key: 'essays', label: 'مراجعة المقالات', icon: ClipboardCheck },
+  { key: 'requests', label: 'طلبات الطلاب', icon: UserRound },
   { key: 'audit', label: 'سجل النشاط', icon: History },
 ];
 
@@ -35,6 +37,7 @@ const studentNav = [
   { key: 'available', label: 'الامتحانات المتاحة', shortLabel: 'المتاحة', icon: BookOpenCheck },
   { key: 'join', label: 'دخول امتحان', shortLabel: 'دخول', icon: Radio },
   { key: 'results', label: 'نتائجي', icon: BarChart3 },
+  { key: 'teachers', label: 'المدرسون', icon: GraduationCap },
 ];
 
 const pageMeta = {
@@ -44,6 +47,8 @@ const pageMeta = {
   'exam-detail': { title: 'تفاصيل الامتحان', eyebrow: 'إدارة الجلسة' },
   results: { title: 'النتائج والتحليلات', eyebrow: 'متابعة الأداء' },
   essays: { title: 'مراجعة المقالات', eyebrow: 'تصحيح يدوي' },
+  requests: { title: 'طلبات الطلاب', eyebrow: 'إدارة التسجيل' },
+  teachers: { title: 'المدرسون', eyebrow: 'اختيار المدرس' },
   audit: { title: 'سجل النشاط', eyebrow: 'تتبع العمليات' },
   join: { title: 'دخول امتحان', eyebrow: 'بوابة الطالب' },
   available: { title: 'الامتحانات المتاحة', eyebrow: 'بوابة الطالب' },

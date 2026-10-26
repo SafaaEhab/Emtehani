@@ -19,6 +19,34 @@ public static class ExamWorkflowSchema
             await db.Database.ExecuteSqlRawAsync("""
                 IF COL_LENGTH('dbo.Exams', 'PausedAtUtc') IS NULL
                     ALTER TABLE [Exams] ADD [PausedAtUtc] datetime2 NULL;
+                IF COL_LENGTH('dbo.Exams', 'AvailableFromUtc') IS NULL
+                    ALTER TABLE [Exams] ADD [AvailableFromUtc] datetime2 NULL;
+                IF COL_LENGTH('dbo.Exams', 'AvailableUntilUtc') IS NULL
+                    ALTER TABLE [Exams] ADD [AvailableUntilUtc] datetime2 NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF OBJECT_ID(N'dbo.TeacherStudentRequests', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [TeacherStudentRequests] (
+                        [Id] uniqueidentifier NOT NULL,
+                        [TeacherId] uniqueidentifier NOT NULL,
+                        [StudentId] uniqueidentifier NOT NULL,
+                        [Status] nvarchar(24) NOT NULL CONSTRAINT [DF_TeacherStudentRequests_Status] DEFAULT N'Pending',
+                        [CreatedAtUtc] datetime2 NOT NULL,
+                        [DecidedAtUtc] datetime2 NULL,
+                        CONSTRAINT [PK_TeacherStudentRequests] PRIMARY KEY ([Id]),
+                        CONSTRAINT [FK_TeacherStudentRequests_Users_TeacherId] FOREIGN KEY ([TeacherId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+                        CONSTRAINT [FK_TeacherStudentRequests_Users_StudentId] FOREIGN KEY ([StudentId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+                    );
+                    CREATE UNIQUE INDEX [IX_TeacherStudentRequests_TeacherId_StudentId] ON [TeacherStudentRequests] ([TeacherId], [StudentId]);
+                    CREATE INDEX [IX_TeacherStudentRequests_StudentId] ON [TeacherStudentRequests] ([StudentId]);
+                END;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                INSERT INTO [TeacherStudentRequests] ([Id], [TeacherId], [StudentId], [Status], [CreatedAtUtc], [DecidedAtUtc])
+                SELECT NEWID(), x.[TeacherId], x.[StudentId], N'Accepted', GETUTCDATE(), GETUTCDATE()
+                FROM (SELECT DISTINCT e.[TeacherId], p.[StudentId] FROM [ExamParticipants] p INNER JOIN [Exams] e ON e.[Id] = p.[ExamId]) x
+                WHERE NOT EXISTS (SELECT 1 FROM [TeacherStudentRequests] r WHERE r.[TeacherId] = x.[TeacherId] AND r.[StudentId] = x.[StudentId]);
                 """, cancellationToken);
             await db.Database.ExecuteSqlRawAsync("""
                 IF COL_LENGTH('dbo.Exams', 'JoinCode') IS NULL
@@ -114,6 +142,25 @@ public static class ExamWorkflowSchema
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "Status" character varying(24) NOT NULL DEFAULT 'Draft';
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "ScheduledAtUtc" timestamp with time zone NULL;
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "PausedAtUtc" timestamp with time zone NULL;
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "AvailableFromUtc" timestamp with time zone NULL;
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "AvailableUntilUtc" timestamp with time zone NULL;
+                CREATE TABLE IF NOT EXISTS "TeacherStudentRequests" (
+                    "Id" uuid NOT NULL,
+                    "TeacherId" uuid NOT NULL,
+                    "StudentId" uuid NOT NULL,
+                    "Status" character varying(24) NOT NULL DEFAULT 'Pending',
+                    "CreatedAtUtc" timestamp with time zone NOT NULL,
+                    "DecidedAtUtc" timestamp with time zone NULL,
+                    CONSTRAINT "PK_TeacherStudentRequests" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_TeacherStudentRequests_Users_TeacherId" FOREIGN KEY ("TeacherId") REFERENCES "Users" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_TeacherStudentRequests_Users_StudentId" FOREIGN KEY ("StudentId") REFERENCES "Users" ("Id") ON DELETE NO ACTION
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_TeacherStudentRequests_TeacherId_StudentId" ON "TeacherStudentRequests" ("TeacherId", "StudentId");
+                CREATE INDEX IF NOT EXISTS "IX_TeacherStudentRequests_StudentId" ON "TeacherStudentRequests" ("StudentId");
+                INSERT INTO "TeacherStudentRequests" ("Id", "TeacherId", "StudentId", "Status", "CreatedAtUtc", "DecidedAtUtc")
+                SELECT gen_random_uuid(), x."TeacherId", x."StudentId", 'Accepted', NOW(), NOW()
+                FROM (SELECT DISTINCT e."TeacherId", p."StudentId" FROM "ExamParticipants" p INNER JOIN "Exams" e ON e."Id" = p."ExamId") x
+                ON CONFLICT ("TeacherId", "StudentId") DO NOTHING;
                 ALTER TABLE "Submissions" ADD COLUMN IF NOT EXISTS "ExtraTimeSeconds" integer NOT NULL DEFAULT 0;
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_ExamParticipants_ExamId_StudentId" ON "ExamParticipants" ("ExamId", "StudentId");
                 CREATE INDEX IF NOT EXISTS "IX_ExamParticipants_StudentId" ON "ExamParticipants" ("StudentId");

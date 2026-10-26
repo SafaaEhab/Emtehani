@@ -276,6 +276,19 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
 
     private static string StudentCode(JsonNode auth) => auth["studentCode"]!.GetValue<string>();
 
+    private static async Task EnrollStudent(HttpClient teacher, HttpClient student)
+    {
+        var teacherMe = await teacher.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        var studentMe = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        var requested = await student.PostAsync($"/api/teachers/{GuidValue(teacherMe!["id"])}/request", null);
+        Assert.Equal(HttpStatusCode.OK, requested.StatusCode);
+        var requests = await teacher.GetFromJsonAsync<JsonNode>("/api/teacher/requests");
+        var email = studentMe!["email"]!.GetValue<string>();
+        var row = requests!.AsArray().First(item => item!["studentEmail"]!.GetValue<string>() == email && item["status"]!.GetValue<string>() == "Pending");
+        var accepted = await teacher.PutAsJsonAsync($"/api/teacher/requests/{GuidValue(row!["id"])}", new { action = "accept" });
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+    }
+
     [Fact]
     public async Task Registration_AssignsUniqueSixDigitStudentCodeToEachStudent()
     {
@@ -298,6 +311,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var studentEmail = Email("student");
         var (teacher, _) = await RegisterAndLogin(teacherEmail, "Teacher", "مدرس تكاملي");
         var (student, studentAuth) = await RegisterAndLogin(studentEmail, "Student", "طالب تكاملي");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var studentCode = StudentCode(studentAuth);
 
@@ -346,6 +360,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var (teacher, _) = await RegisterAndLogin(Email("grant-teacher"), "Teacher", "مدرس منح المحاولات");
         var (otherTeacher, _) = await RegisterAndLogin(Email("grant-other-teacher"), "Teacher", "مدرس آخر");
         var (student, studentAuth) = await RegisterAndLogin(Email("grant-student"), "Student", "طالب منح المحاولات");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var studentCode = StudentCode(studentAuth);
 
@@ -404,6 +419,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("late-save-teacher"), "Teacher", "مدرس حفظ متأخر");
         var (student, studentAuth) = await RegisterAndLogin(Email("late-save-student"), "Student", "طالب حفظ متأخر");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var studentCode = StudentCode(studentAuth);
 
@@ -445,6 +461,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("access-teacher"), "Teacher", "مدرس الصلاحيات");
         var (student, studentAuth) = await RegisterAndLogin(Email("access-student"), "Student", "طالب الصلاحيات");
+        await EnrollStudent(teacher, student);
         var (otherTeacher, _) = await RegisterAndLogin(Email("access-other-teacher"), "Teacher", "مدرس آخر");
         var (otherStudent, _) = await RegisterAndLogin(Email("access-other-student"), "Student", "طالب آخر");
         var examId = await CreatePublishedExam(teacher);
@@ -494,6 +511,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var studentEmail = Email("essay-student");
         var (teacher, _) = await RegisterAndLogin(teacherEmail, "Teacher", "مدرس مقالي");
         var (student, studentAuth) = await RegisterAndLogin(studentEmail, "Student", "طالب مقالي");
+        await EnrollStudent(teacher, student);
 
         var create = await teacher.PostAsJsonAsync("/api/exams", new
         {
@@ -563,6 +581,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var studentEmail = Email("close-student");
         var (teacher, _) = await RegisterAndLogin(teacherEmail, "Teacher", "مدرس إغلاق");
         var (student, studentAuth) = await RegisterAndLogin(studentEmail, "Student", "طالب إغلاق");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var studentCode = StudentCode(studentAuth);
         var joined = await student.PostAsJsonAsync("/api/exams/enter-code", new { code = studentCode });
@@ -614,6 +633,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, teacherAuth) = await RegisterAndLogin(Email("roster-teacher"), "Teacher", "مدرس الحضور");
         var (student, studentAuth) = await RegisterAndLogin(Email("roster-student"), "Student", "سارة أحمد رستم");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var studentCode = StudentCode(studentAuth);
 
@@ -639,6 +659,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("generated-teacher"), "Teacher", "مدرس الأكواد المولدة");
         var (student, studentAuth) = await RegisterAndLogin(Email("generated-student"), "Student", "طالب الكود المولد");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var me = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
         var studentId = GuidValue(me!["id"]);
@@ -675,6 +696,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("owned-teacher"), "Teacher", "مدرس");
         var (first, firstAuth) = await RegisterAndLogin(Email("owned-first"), "Student", "الطالب الأول");
+        await EnrollStudent(teacher, first);
         var (_, secondAuth) = await RegisterAndLogin(Email("owned-second"), "Student", "الطالب الثاني");
         await CreatePublishedExam(teacher);
 
@@ -716,6 +738,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var (teacherOne, _) = await RegisterAndLogin(Email("available-teacher-one"), "Teacher", "مدرس الرياضيات");
         var (teacherTwo, _) = await RegisterAndLogin(Email("available-teacher-two"), "Teacher", "مدرس الفيزياء");
         var (student, _) = await RegisterAndLogin(Email("available-student"), "Student", "طالب الامتحانات المتاحة");
+        await EnrollStudent(teacherOne, student);
+        await EnrollStudent(teacherTwo, student);
         var math = await CreateCustomExam(teacherOne, "امتحان الرياضيات");
         var physics = await CreateCustomExam(teacherTwo, "امتحان الفيزياء");
         var draft = await CreateCustomExam(teacherOne, "مسودة غير منشورة", publish: false);
@@ -767,6 +791,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("enter-by-id-teacher"), "Teacher", "مدرس الدخول المباشر");
         var (student, _) = await RegisterAndLogin(Email("enter-by-id-student"), "Student", "طالب الدخول المباشر");
+        await EnrollStudent(teacher, student);
         var examId = await CreateCustomExam(teacher, "امتحان بمحاولتين", maxAttempts: 2);
 
         var firstEnterResponse = await student.PostAsync($"/api/exams/{examId}/enter", null);
@@ -898,6 +923,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         for (var i = 0; i < 5; i++)
         {
             var (student, studentAuth) = await RegisterAndLogin(Email($"pag-student-{i}"), "Student", $"طالب تجزئة {i}");
+            await EnrollStudent(teacher, student);
             var code = StudentCode(studentAuth);
             var joined = await student.PostAsJsonAsync("/api/exams/enter-code", new { code });
             Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
@@ -922,6 +948,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("concurrent"), "Teacher", "مدرس تزامن");
         var (student, studentAuth) = await RegisterAndLogin(Email("concurrent-student"), "Student", "طالب تزامن");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var code = StudentCode(studentAuth);
 
@@ -957,6 +984,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var (teacher, _) = await RegisterAndLogin(Email("finalize"), "Teacher", "مدرس إنهاء");
         var (student, studentAuth) = await RegisterAndLogin(Email("finalize-student"), "Student", "طالب إنهاء");
+        await EnrollStudent(teacher, student);
         var examId = await CreatePublishedExam(teacher);
         var code = StudentCode(studentAuth);
 
@@ -978,5 +1006,80 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var results = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/results");
         Assert.NotNull(results);
         Assert.Equal(1, results["total"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task AvailabilityWindow_BlocksOutsideAndCapsRemainingTime()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("availability-teacher"), "Teacher", "مدرس الإتاحة");
+        var (student, _) = await RegisterAndLogin(Email("availability-student"), "Student", "طالب الإتاحة");
+        await EnrollStudent(teacher, student);
+
+        async Task<Guid> CreateWindowExam(string title, DateTime? from, DateTime? until)
+        {
+            var create = await teacher.PostAsJsonAsync("/api/exams", new
+            {
+                title,
+                description = "نافذة إتاحة",
+                durationMinutes = 30,
+                maxAttempts = 1,
+                allowResumeAfterFocusLoss = true,
+                availableFromUtc = from,
+                availableUntilUtc = until,
+                questions = new object[]
+                {
+                    new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 1 }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+            var id = GuidValue((await ReadJson(create))["id"]);
+            Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsync($"/api/exams/{id}/publish", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{id}/enter", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/exams/{id}/state", new { action = "open" })).StatusCode);
+            return id;
+        }
+
+        var now = DateTime.UtcNow;
+        var openExam = await CreateWindowExam("نافذة مفتوحة", now.AddHours(-1), now.AddMinutes(10));
+        var started = await student.PostAsync($"/api/exams/{openExam}/start", null);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var remaining = (await ReadJson(started))["remainingSeconds"]!.GetValue<int>();
+        Assert.InRange(remaining, 540, 600);
+
+        var expiredExam = await CreateWindowExam("نافذة منتهية", now.AddHours(-2), now.AddMinutes(-1));
+        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{expiredExam}/start", null)).StatusCode);
+
+        var futureExam = await CreateWindowExam("نافذة مستقبلية", now.AddHours(1), now.AddHours(2));
+        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{futureExam}/start", null)).StatusCode);
+
+        var other = await RegisterAndLogin(Email("availability-other-teacher"), "Teacher", "مدرس آخر");
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await other.Item1.PutAsJsonAsync($"/api/exams/{openExam}/availability", new { availableUntilUtc = now.AddHours(3) })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Enrollment_IsRequiredAndOnlyTeacherCanDecide()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("enroll-teacher"), "Teacher", "مدرس التسجيل");
+        var (student, studentAuth) = await RegisterAndLogin(Email("enroll-student"), "Student", "طالب التسجيل");
+        await CreatePublishedExam(teacher);
+
+        var available = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Empty(available!["items"]!.AsArray());
+
+        var request = await student.PostAsync($"/api/teachers/{GuidValue((await teacher.GetFromJsonAsync<JsonNode>("/api/auth/me"))!["id"])}/request", null);
+        Assert.Equal(HttpStatusCode.OK, request.StatusCode);
+        var duplicate = await student.PostAsync($"/api/teachers/{GuidValue((await teacher.GetFromJsonAsync<JsonNode>("/api/auth/me"))!["id"])}/request", null);
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+
+        var requests = await teacher.GetFromJsonAsync<JsonNode>("/api/teacher/requests");
+        var row = requests!.AsArray().First(item => item!["status"]!.GetValue<string>() == "Pending");
+        var requestId = GuidValue(row!["id"]);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PutAsJsonAsync($"/api/teacher/requests/{requestId}", new { action = "accept" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/api/teacher/requests")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/teacher/requests/{requestId}", new { action = "accept" })).StatusCode);
+        var afterAccept = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.NotEmpty(afterAccept!["items"]!.AsArray());
     }
 }

@@ -51,7 +51,6 @@ const fadeUp = {
 const navLinks = [
   { href: '#features', label: 'المزايا' },
   { href: '#workflow', label: 'كيف يعمل' },
-  { href: '#testimonials', label: 'الآراء' },
   { href: '#faq', label: 'الأسئلة' },
 ];
 
@@ -379,32 +378,6 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
           </div>
         </section>
 
-        <section id="testimonials" className="scroll-mt-24 py-16 sm:py-20">
-          <div className="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
-            <SectionHeading eyebrow="تجربة الاستخدام" title="وضوح أكثر للمدرس والطالب." description="صُممت الشاشات لتقليل التشتيت: ما يهم الآن يظهر أولاً، وما يحتاج إجراءً يصبح واضحاً." />
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
-              {[
-                { quote: 'أول مرة أفتح امتحاناً وأعرف بالضبط من دخل ومن لم يدخل، بدون رسائل متفرقة.', name: 'نورة العلي', role: 'مدرسة رياضيات', initials: 'ن ع' },
-                { quote: 'غرفة الانتظار غيّرت التجربة. الطالب يعرف أنه في المكان الصحيح، وأنا أفتح الجلسة عندما أكون جاهزة.', name: 'سامي الحربي', role: 'مدرس علوم', initials: 'س ح' },
-                { quote: 'الواجهة عربية بالكامل وواضحة على الجوال. لم أحتج لشرح طويل قبل أول امتحان.', name: 'ريم القحطاني', role: 'منسقة أكاديمية', initials: 'ر ق' },
-              ].map((item, index) => (
-                <motion.div key={item.name} initial={reduce ? false : { opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: index * 0.06 }}>
-                  <Card className="flex h-full flex-col p-5 sm:p-6" hover>
-                    <div className="mb-4 flex gap-0.5 text-warning" aria-label="خمس نجوم">
-                      {Array.from({ length: 5 }).map((_, star) => <span key={star} className="text-[12px]">★</span>)}
-                    </div>
-                    <blockquote className="flex-1 text-[14px] leading-7 text-ink">“{item.quote}”</blockquote>
-                    <div className="mt-5 flex items-center gap-2.5 border-t border-line pt-4">
-                      <span className="grid size-9 place-items-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">{item.initials}</span>
-                      <div><p className="text-[12.5px] font-bold text-ink">{item.name}</p><p className="text-[11px] text-muted">{item.role}</p></div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         <section id="faq" className="scroll-mt-24 pb-16 sm:pb-20">
           <div className="mx-auto grid max-w-[1240px] gap-6 px-4 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:gap-12 lg:px-8">
             <div>
@@ -485,7 +458,6 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
               <h3 className="text-[12px] font-extrabold text-ink">تواصل</h3>
               <div className="mt-3 grid gap-2.5 text-[12px] text-muted">
                 <a href="mailto:ahmedgbreel47@gmail.com" className="ui-ltr text-left transition hover:text-primary">ahmedgbreel47@gmail.com</a>
-                <span>الرياض، المملكة العربية السعودية</span>
                 <span className="inline-flex items-center gap-1 text-emerald"><ShieldCheck size={11} />بيانات الدخول محمية</span>
               </div>
             </div>

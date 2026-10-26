@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore; using Emtehani.Domain.Entities;
 namespace Emtehani.Infrastructure.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbContext(options) {
  public DbSet<AppUser> Users=>Set<AppUser>(); public DbSet<Exam> Exams=>Set<Exam>(); public DbSet<Question> Questions=>Set<Question>(); public DbSet<ExamParticipant> ExamParticipants=>Set<ExamParticipant>();
- public DbSet<Submission> Submissions=>Set<Submission>(); public DbSet<SubmissionAnswer> Answers=>Set<SubmissionAnswer>(); public DbSet<AuditEvent> AuditEvents=>Set<AuditEvent>();
+ public DbSet<Submission> Submissions=>Set<Submission>(); public DbSet<SubmissionAnswer> Answers=>Set<SubmissionAnswer>(); public DbSet<AuditEvent> AuditEvents=>Set<AuditEvent>(); public DbSet<TeacherStudentRequest> TeacherStudentRequests=>Set<TeacherStudentRequest>();
  protected override void OnModelCreating(ModelBuilder b) {
   b.Entity<AppUser>().HasIndex(x=>x.Email).IsUnique();
   b.Entity<AppUser>().Property(x=>x.StudentCode).HasMaxLength(12);
@@ -22,5 +22,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<Submission>().HasIndex(x=>new{x.ExamId,x.StudentId}).HasDatabaseName("IX_Submissions_Exam_Student_InProgress").HasFilter(inProgressFilter).IsUnique();
   b.Entity<SubmissionAnswer>().HasOne(x=>x.Question).WithMany().HasForeignKey(x=>x.QuestionId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<SubmissionAnswer>().HasIndex(x=>new{x.SubmissionId,x.QuestionId}).IsUnique();
+  b.Entity<TeacherStudentRequest>().HasOne(x=>x.Teacher).WithMany().HasForeignKey(x=>x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<TeacherStudentRequest>().HasOne(x=>x.Student).WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.NoAction);
+  b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.StudentId}).IsUnique();
+  b.Entity<TeacherStudentRequest>().HasIndex(x=>x.StudentId);
  }
 }

@@ -101,6 +101,14 @@ export async function openExam(request, teacherToken, examId) {
   await apiJson(request, 'PUT', `/api/exams/${examId}/state`, teacherToken, { action: 'open' });
 }
 
+export async function enrollStudent(request, teacher, student) {
+  await apiJson(request, 'POST', `/api/teachers/${teacher.id}/request`, student.token);
+  const rows = await apiJson(request, 'GET', '/api/teacher/requests', teacher.token);
+  const row = rows.find((item) => item.studentEmail === student.email && item.status === 'Pending');
+  if (!row) throw new Error(`Pending enrollment request not found for ${student.email}`);
+  await apiJson(request, 'PUT', `/api/teacher/requests/${row.id}`, teacher.token, { action: 'accept' });
+}
+
 export async function enterCode(request, studentToken, code) {
   return apiJson(request, 'POST', '/api/exams/enter-code', studentToken, { code });
 }

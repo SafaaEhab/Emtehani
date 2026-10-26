@@ -7,6 +7,14 @@ public static class ExamGrader
     public static DateTime Deadline(Submission submission, int durationMinutes) =>
         submission.StartedAtUtc.AddMinutes(durationMinutes).AddSeconds(submission.ExtraTimeSeconds);
 
+    // The attempt ends at whichever comes first: the per-attempt duration or the
+    // exam availability window. Null window preserves the legacy behaviour.
+    public static DateTime Deadline(Submission submission, int durationMinutes, DateTime? availableUntilUtc)
+    {
+        var durationEnd = Deadline(submission, durationMinutes);
+        return availableUntilUtc is DateTime until && until < durationEnd ? until : durationEnd;
+    }
+
     public static bool IsExpired(Submission submission, int durationMinutes, DateTime now) =>
         now >= Deadline(submission, durationMinutes);
 

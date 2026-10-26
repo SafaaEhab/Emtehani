@@ -13,6 +13,8 @@ import ExamForm from './pages/ExamForm';
 import TeacherExamDetail from './pages/TeacherExamDetail';
 import ResultsPage from './pages/ResultsPage';
 import EssaysPage from './pages/EssaysPage';
+import TeacherRequestsPage from './pages/TeacherRequestsPage';
+import TeachersPage from './pages/TeachersPage';
 import AuditPage from './pages/AuditPage';
 import JoinExamPage from './pages/JoinExamPage';
 import AvailableExamsPage from './pages/AvailableExamsPage';
@@ -29,6 +31,7 @@ const teacherTitles = {
   'exam-detail': 'إدارة الجلسة',
   results: 'النتائج والتحليلات',
   essays: 'مراجعة المقالات',
+  requests: 'طلبات الطلاب',
   audit: 'سجل النشاط',
 };
 
@@ -37,6 +40,7 @@ const studentTitles = {
   available: 'الامتحانات المتاحة',
   join: 'دخول امتحان',
   results: 'نتائجي',
+  teachers: 'المدرسون',
 };
 
 const activePages = {
@@ -335,6 +339,10 @@ export default function App() {
     content = <ResultsPage token={token} user={user} selectedExam={selectedExam} onOpenReview={(id) => openReview(id, 'results')} onOpenExam={openExam} />;
   } else if (page === 'essays') {
     content = <EssaysPage token={token} onOpenEssayReview={openEssayReview} onOpenResults={openResults} />;
+  } else if (page === 'requests' && isTeacher) {
+    content = <TeacherRequestsPage token={token} />;
+  } else if (page === 'teachers' && !isTeacher) {
+    content = <TeachersPage token={token} />;
   } else if (page === 'audit') {
     content = <AuditPage token={token} />;
   } else if (page === 'join') {

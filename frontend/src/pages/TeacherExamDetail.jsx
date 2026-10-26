@@ -10,6 +10,7 @@ import {
   Play,
   Radio,
   RefreshCw,
+  Save,
   Square,
   TimerReset,
   Users,
@@ -23,6 +24,8 @@ import {
   Card,
   CopyChip,
   EmptyState,
+  Field,
+  Input,
   LiveDot,
   Modal,
   PageHeader,
@@ -48,6 +51,16 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
   const [closeOpen, setCloseOpen] = useState(false);
   const [syncedAt, setSyncedAt] = useState(Date.now());
   const [tick, setTick] = useState(0);
+  const [availableFrom, setAvailableFrom] = useState('');
+  const [availableUntil, setAvailableUntil] = useState('');
+
+  function toLocalInput(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
 
   const load = useCallback(async (background = false) => {
     if (!exam?.id) return;
@@ -72,7 +85,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
     if (!initialExam?.id) return;
     let active = true;
     request(`/api/exams/${initialExam.id}`, { token })
-      .then((meta) => { if (active) setExam((current) => ({ ...current, ...meta, status: current.status === 'Active' || current.status === 'Paused' ? current.status : meta.status })); })
+      .then((meta) => { if (active) { setExam((current) => ({ ...current, ...meta, status: current.status === 'Active' || current.status === 'Paused' ? current.status : meta.status })); setAvailableFrom(toLocalInput(meta.availableFromUtc)); setAvailableUntil(toLocalInput(meta.availableUntilUtc)); } })
       .catch(() => {});
     return () => { active = false; };
   }, [token, initialExam?.id]);
@@ -122,6 +135,32 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
       setExam((current) => ({ ...current, isPublished: result.isPublished, status: result.status }));
       setNotice('تم نشر الامتحان. افتح الجلسة في وقتها وسيظهر الطلاب تلقائياً بعد دخولهم بأكوادهم الشخصية.');
       await load(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function saveAvailability() {
+    setBusy('availability');
+    setError('');
+    setNotice('');
+    try {
+      if (availableFrom && availableUntil && new Date(availableUntil) <= new Date(availableFrom)) {
+        setError('نهاية فترة الإتاحة يجب أن تكون بعد بدايتها.');
+        return;
+      }
+      const result = await request(`/api/exams/${exam.id}/availability`, {
+        token,
+        method: 'PUT',
+        body: JSON.stringify({
+          availableFromUtc: availableFrom ? new Date(availableFrom).toISOString() : null,
+          availableUntilUtc: availableUntil ? new Date(availableUntil).toISOString() : null,
+        }),
+      });
+      setExam((current) => ({ ...current, availableFromUtc: result.availableFromUtc, availableUntilUtc: result.availableUntilUtc }));
+      setNotice('تم تحديث فترة إتاحة الامتحان.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -216,6 +255,20 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
           <p className="text-[10.5px] leading-5 text-subtle">مرّ أكثر من 45 ثانية بلا نشاط</p>
         </Card>
       </div>
+
+      <Card className="mb-4 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2">
+            <Field label="فترة الإتاحة من" id="detail-available-from" hint="اختياري. لا يمكن بدء محاولة جديدة قبل هذا الوقت.">
+              <Input id="detail-available-from" type="datetime-local" value={availableFrom} onChange={(event) => setAvailableFrom(event.target.value)} />
+            </Field>
+            <Field label="فترة الإتاحة إلى" id="detail-available-until" hint="تنتهي محاولة الطالب عند هذا الوقت حتى لو بقي من المدة.">
+              <Input id="detail-available-until" type="datetime-local" value={availableUntil} onChange={(event) => setAvailableUntil(event.target.value)} />
+            </Field>
+          </div>
+          <Button size="sm" icon={Save} loading={busy === 'availability'} onClick={saveAvailability}>حفظ فترة الإتاحة</Button>
+        </div>
+      </Card>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[1fr_320px]">
         <Card className="min-w-0 overflow-hidden">

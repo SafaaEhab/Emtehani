@@ -220,6 +220,8 @@ export default function ExamForm({ token, onBack, onCreated }) {
   const [maxAttempts, setMaxAttempts] = useState(1);
   const [allowResume, setAllowResume] = useState(true);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [availableFrom, setAvailableFrom] = useState('');
+  const [availableUntil, setAvailableUntil] = useState('');
   const [questions, setQuestions] = useState([createQuestion('MultipleChoice')]);
   const [typePicker, setTypePicker] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -268,6 +270,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
     if (title.trim().length < 3) return 'اكتب عنواناً واضحاً للامتحان (3 أحرف على الأقل).';
     if (!questions.length) return 'أضف سؤالاً واحداً على الأقل.';
     if (!Number.isFinite(Number(durationMinutes)) || Number(durationMinutes) < 1 || Number(durationMinutes) > 300) return 'مدة الامتحان يجب أن تكون بين دقيقة و300 دقيقة.';
+    if (availableFrom && availableUntil && new Date(availableUntil) <= new Date(availableFrom)) return 'نهاية فترة الإتاحة يجب أن تكون بعد بدايتها.';
     for (let index = 0; index < questions.length; index++) {
       const question = questions[index];
       if (!question.text.trim()) return `السؤال ${index + 1}: اكتب نص السؤال.`;
@@ -305,6 +308,8 @@ export default function ExamForm({ token, onBack, onCreated }) {
           maxAttempts: Number(maxAttempts),
           allowResumeAfterFocusLoss: allowResume,
           scheduledAtUtc: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          availableFromUtc: availableFrom ? new Date(availableFrom).toISOString() : null,
+          availableUntilUtc: availableUntil ? new Date(availableUntil).toISOString() : null,
           questions: questions.map(payloadFor),
         }),
       });
@@ -351,6 +356,14 @@ export default function ExamForm({ token, onBack, onCreated }) {
               <Field label="موعد الجلسة" id="exam-schedule" hint="اختياري. يمكنك تركه فارغاً وفتح الجلسة يدوياً في أي وقت.">
                 <Input id="exam-schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} min={new Date().toISOString().slice(0, 16)} />
               </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="فترة الإتاحة من" id="exam-available-from" hint="اختياري. لا يمكن للطالب بدء المحاولة قبل هذا الوقت.">
+                  <Input id="exam-available-from" type="datetime-local" value={availableFrom} onChange={(event) => setAvailableFrom(event.target.value)} />
+                </Field>
+                <Field label="فترة الإتاحة إلى" id="exam-available-until" hint="تنتهي المحاولة عند هذا الوقت حتى لو بقي من المدة.">
+                  <Input id="exam-available-until" type="datetime-local" value={availableUntil} onChange={(event) => setAvailableUntil(event.target.value)} />
+                </Field>
+              </div>
               <Checkbox label="السماح للطالب باستكمال المحاولة إذا غادر الصفحة أو انقطع اتصاله. عند الإيقاف، يُحتسب خروج الطالب ضمن سجل المحاولة." checked={allowResume} onChange={(event) => setAllowResume(event.target.checked)} />
             </div>
           </Card>

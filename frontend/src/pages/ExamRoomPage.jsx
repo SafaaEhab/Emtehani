@@ -97,10 +97,10 @@ function MatchingInput({ question, value, onChange }) {
 function QuestionField({ question, index, value, onChange }) {
   const id = `question-${question.id}`;
   const inputId = `${id}-input`;
-  const common = 'w-full rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary-soft';
+  const common = 'w-full select-text rounded-[11px] border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-subtle focus:border-primary focus:ring-4 focus:ring-primary-soft';
 
   return (
-    <Card id={id} className="scroll-mt-28 overflow-hidden">
+    <Card id={id} className="scroll-mt-28 select-none overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-soft/50 px-4 py-3">
         <span className="grid size-8 place-items-center rounded-[8px] bg-primary text-[11px] font-bold text-white">{formatNumber(index + 1)}</span>
         <Badge tone="neutral">{typeLabels[question.type] || question.type}</Badge>
@@ -317,6 +317,10 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
         await request(`/api/submissions/${submissionId}/events`, { token, method: 'POST', body: JSON.stringify({ type }) });
       } catch { /* best-effort telemetry */ }
     }
+    function isEditable(target) {
+      const element = target instanceof Element ? target : null;
+      return Boolean(element?.closest('input, textarea, select, [contenteditable="true"]'));
+    }
     function onVisibility() {
       if (document.visibilityState === 'hidden') {
         focusLossRef.current = true;
@@ -326,19 +330,44 @@ export default function ExamRoomPage({ token, paper, onSubmitted }) {
       }
     }
     function onCopy(event) {
+      if (isEditable(event.target)) return; // keep answer fields usable
       event.preventDefault();
       record('copy');
       setFocusWarning(true);
     }
+    function onCut(event) {
+      if (isEditable(event.target)) return;
+      event.preventDefault();
+      record('copy');
+      setFocusWarning(true);
+    }
+    function onPaste(event) {
+      if (isEditable(event.target)) return;
+      event.preventDefault();
+    }
+    function onContextMenu(event) {
+      event.preventDefault();
+    }
     function onKeyDown(event) {
       if (event.key === 'PrintScreen') record('screenshot');
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod) return;
+      const key = event.key.toLowerCase();
+      if (key === 'p') { event.preventDefault(); return; }
+      if ((key === 'c' || key === 'x' || key === 'v') && !isEditable(event.target)) event.preventDefault();
     }
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener('copy', onCopy);
+    document.addEventListener('cut', onCut);
+    document.addEventListener('paste', onPaste);
+    document.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('copy', onCopy);
+      document.removeEventListener('cut', onCut);
+      document.removeEventListener('paste', onPaste);
+      document.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [token, submissionId, paused, save]);
