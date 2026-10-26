@@ -211,7 +211,13 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
       setGrantTarget(null);
       load(true);
     } catch (err) {
-      setError(err.message);
+      if (err.status === 409) {
+        setGrantTarget(null);
+        await load(true);
+        setError(`${err.message} تم تحديث القائمة لتعكس الحالة الحالية.`);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setGrantBusy(false);
     }
@@ -294,7 +300,7 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
                           <td className="px-3 py-3.5"><StatusChip status={item.status} /></td>
                           <td className="px-3 py-3.5 text-[11px] text-muted">{formatDate(item.submittedAtUtc)}</td>
                           <td className="px-3 py-3.5">{item.focusLossDetected ? <Badge tone="warning">خروج مرصود</Badge> : <span className="text-[11px] text-subtle">—</span>}</td>
-                          <td className="px-5 py-3.5"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button><Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة إضافية</Button></div></td>
+                          <td className="px-5 py-3.5"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button>{item.isExceptionAttempt ? <Button variant="ghost" size="xs" icon={CheckCircle2} disabled title="تم منح محاولة إضافية لهذه المحاولة بالفعل">تم منح محاولة</Button> : <Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة إضافية</Button>}</div></td>
                         </tr>
                       ))}
                     </tbody>
@@ -305,7 +311,7 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
                     <div key={item.id} className="rounded-[13px] border border-line bg-surface-soft/50 p-3.5">
                       <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.student}</p><p className="max-w-[150px] truncate text-[10px] text-subtle" dir="ltr">{item.email}</p></div></div><StatusChip status={item.status} /></div>
                       <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><div className="flex gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button><Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة</Button></div></div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><div className="flex gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button>{item.isExceptionAttempt ? <Button variant="ghost" size="xs" icon={CheckCircle2} disabled title="تم منح محاولة إضافية لهذه المحاولة بالفعل">تم منح محاولة</Button> : <Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة</Button>}</div></div>
                     </div>
                   ))}
                 </div>

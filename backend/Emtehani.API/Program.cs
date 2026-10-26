@@ -1047,7 +1047,7 @@ var exam = await db.Exams.FirstOrDefaultAsync(
 if (exam is null)
     return Results.NotFound();
   await FinalizeExpired(db);
-  var q = db.Submissions.Where(s => s.ExamId == id && s.Status != "InProgress"); var total = await q.CountAsync(); var items = await q.OrderByDescending(s => s.SubmittedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).Select(s => new { s.Id, Student = s.Student!.FullName, Email = s.Student.Email, s.Score, s.MaxScore, s.Status, s.SubmittedAtUtc, s.FocusLossDetected }).ToListAsync(); return Results.Ok(new { items, page, pageSize, total });
+  var q = db.Submissions.Where(s => s.ExamId == id && s.Status != "InProgress"); var total = await q.CountAsync(); var items = await q.OrderByDescending(s => s.SubmittedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).Select(s => new { s.Id, Student = s.Student!.FullName, Email = s.Student.Email, s.Score, s.MaxScore, s.Status, s.SubmittedAtUtc, s.FocusLossDetected, s.IsExceptionAttempt }).ToListAsync(); return Results.Ok(new { items, page, pageSize, total });
 }).RequireAuthorization();
 app.MapPost("/api/submissions/{id:guid}/grant-extra-attempt", async (Guid id, ClaimsPrincipal p, AppDbContext db) =>
 {
@@ -1061,7 +1061,7 @@ app.MapPost("/api/submissions/{id:guid}/grant-extra-attempt", async (Guid id, Cl
   if (submission.Exam?.TeacherId != teacherId) return Results.Forbid();
   if (submission.Status == "Processing") return Results.Conflict(new { message = "التسليم قيد المعالجة. انتظر لحظة ثم أعد المحاولة." });
   if (submission.Status == "InProgress" && !submission.FocusLossDetected) return Results.Conflict(new { message = "الطالب لديه محاولة مفتوحة ولم يُرصد خروجه منها. لا يمكن منح استثناء في هذه الحالة." });
-  if (submission.IsExceptionAttempt) return Results.Conflict(new { message = "تم استخدام استثناء هذه المحاولة من قبل." });
+  if (submission.IsExceptionAttempt) return Results.Conflict(new { message = "تم منح محاولة إضافية لهذه المحاولة بالفعل. حدّث القائمة قبل المحاولة مرة أخرى." });
   if (submission.Status != "InProgress") {
     var latest = await db.Submissions.Where(x => x.ExamId == submission.ExamId && x.StudentId == submission.StudentId && x.Status != "InProgress").OrderByDescending(x => x.SubmittedAtUtc).Select(x => x.Id).FirstOrDefaultAsync();
     if (latest != submission.Id) return Results.Conflict(new { message = "يمكن منح الاستثناء للمحاولة الأخيرة فقط." });

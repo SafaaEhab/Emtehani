@@ -353,6 +353,65 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
+    public async Task GrantExtraAttempt_RejectsDuplicateGrant_AndAllowsGrantForNextAttempt()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("grant-teacher"), "Teacher", "مدرس منح المحاولات");
+        var (otherTeacher, _) = await RegisterAndLogin(Email("grant-other-teacher"), "Teacher", "مدرس آخر");
+        var (student, studentAuth) = await RegisterAndLogin(Email("grant-student"), "Student", "طالب منح المحاولات");
+        var examId = await CreatePublishedExam(teacher);
+        var studentCode = StudentCode(studentAuth);
+
+        var joined = await student.PostAsJsonAsync("/api/exams/enter-code", new { code = studentCode });
+        Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
+        await OpenExam(teacher, examId);
+
+        var firstStart = await student.PostAsync($"/api/exams/{examId}/start", null);
+        Assert.Equal(HttpStatusCode.OK, firstStart.StatusCode);
+        var firstAttempt = GuidValue((await ReadJson(firstStart))["id"]);
+
+        var paperResponse = await student.GetAsync($"/api/exams/{examId}/paper");
+        Assert.Equal(HttpStatusCode.OK, paperResponse.StatusCode);
+        var paper = await ReadJson(paperResponse);
+        var answers = paper["questions"]!.AsArray().Select(question => new
+        {
+            questionId = GuidValue(question!["id"]),
+            answerText = question["type"]!.GetValue<string>() == "MultipleChoice" ? "4" : "صح"
+        }).ToArray();
+
+        var firstSubmit = await student.PostAsJsonAsync($"/api/submissions/{firstAttempt}/submit", new { answers, focusLossDetected = false });
+        Assert.Equal(HttpStatusCode.OK, firstSubmit.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherTeacher.PostAsync($"/api/submissions/{firstAttempt}/grant-extra-attempt", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/submissions/{firstAttempt}/grant-extra-attempt", null)).StatusCode);
+
+        var firstGrant = await teacher.PostAsync($"/api/submissions/{firstAttempt}/grant-extra-attempt", null);
+        Assert.Equal(HttpStatusCode.OK, firstGrant.StatusCode);
+
+        var results = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/results?page=1&pageSize=100");
+        var firstRow = results!["items"]!.AsArray().Single(x => GuidValue(x!["id"]) == firstAttempt)!;
+        Assert.True(firstRow["isExceptionAttempt"]!.GetValue<bool>());
+
+        var duplicate = await teacher.PostAsync($"/api/submissions/{firstAttempt}/grant-extra-attempt", null);
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        var duplicateBody = await ReadJson(duplicate);
+        Assert.Contains("بالفعل", duplicateBody["message"]!.GetValue<string>());
+
+        var secondStart = await student.PostAsync($"/api/exams/{examId}/start", null);
+        Assert.Equal(HttpStatusCode.OK, secondStart.StatusCode);
+        var secondAttempt = GuidValue((await ReadJson(secondStart))["id"]);
+        Assert.NotEqual(firstAttempt, secondAttempt);
+
+        var secondSubmit = await student.PostAsJsonAsync($"/api/submissions/{secondAttempt}/submit", new { answers, focusLossDetected = false });
+        Assert.Equal(HttpStatusCode.OK, secondSubmit.StatusCode);
+
+        var secondGrant = await teacher.PostAsync($"/api/submissions/{secondAttempt}/grant-extra-attempt", null);
+        Assert.Equal(HttpStatusCode.OK, secondGrant.StatusCode);
+
+        var secondDuplicate = await teacher.PostAsync($"/api/submissions/{secondAttempt}/grant-extra-attempt", null);
+        Assert.Equal(HttpStatusCode.Conflict, secondDuplicate.StatusCode);
+    }
+
+    [Fact]
     public async Task AutosaveAfterSubmit_IsRejectedAndDoesNotChangePersistedAnswers()
     {
         var (teacher, _) = await RegisterAndLogin(Email("late-save-teacher"), "Teacher", "مدرس حفظ متأخر");
