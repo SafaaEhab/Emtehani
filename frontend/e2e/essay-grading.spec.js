@@ -26,7 +26,7 @@ test('essay grade is saved, applied to the final score, and visible after reload
     ],
   });
 
-  const entered = await apiJson(request, 'POST', '/api/exams/enter-code', student.token, { code: student.studentCode });
+  const entered = await apiJson(request, 'POST', `/api/exams/${exam.id}/enter`, student.token);
   await apiJson(request, 'PUT', `/api/exams/${exam.id}/state`, teacher.token, { action: 'open' });
   const started = await apiJson(request, 'POST', `/api/exams/${exam.id}/start`, student.token);
   const paper = await apiJson(request, 'GET', `/api/exams/${exam.id}/paper`, student.token);

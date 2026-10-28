@@ -41,6 +41,7 @@ import {
 } from '../components/ui';
 import { request } from '../lib/api';
 import { formatDuration, formatNumber } from '../lib/format';
+import { EDUCATION_STAGES, gradesForStage } from '../lib/education';
 
 const questionTypes = [
   { value: 'MultipleChoice', label: 'اختيار من متعدد', short: 'اختيار', icon: ListChecks, note: 'خيارات وإجابة واحدة صحيحة' },
@@ -216,6 +217,8 @@ function QuestionEditor({ question, index, total, onChange, onRemove, onMove }) 
 export default function ExamForm({ token, onBack, onCreated }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [stage, setStage] = useState('');
+  const [grade, setGrade] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [maxAttempts, setMaxAttempts] = useState(1);
   const [allowResume, setAllowResume] = useState(true);
@@ -268,6 +271,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
 
   function validate() {
     if (title.trim().length < 3) return 'اكتب عنواناً واضحاً للامتحان (3 أحرف على الأقل).';
+    if (!stage || !gradesForStage(stage).includes(grade)) return 'اختر المرحلة التعليمية والصف الدراسي المناسبين للامتحان.';
     if (!questions.length) return 'أضف سؤالاً واحداً على الأقل.';
     if (!Number.isFinite(Number(durationMinutes)) || Number(durationMinutes) < 1 || Number(durationMinutes) > 300) return 'مدة الامتحان يجب أن تكون بين دقيقة و300 دقيقة.';
     if (availableFrom && availableUntil && new Date(availableUntil) <= new Date(availableFrom)) return 'نهاية فترة الإتاحة يجب أن تكون بعد بدايتها.';
@@ -310,6 +314,8 @@ export default function ExamForm({ token, onBack, onCreated }) {
           scheduledAtUtc: scheduledAt ? new Date(scheduledAt).toISOString() : null,
           availableFromUtc: availableFrom ? new Date(availableFrom).toISOString() : null,
           availableUntilUtc: availableUntil ? new Date(availableUntil).toISOString() : null,
+          stage,
+          grade,
           questions: questions.map(payloadFor),
         }),
       });
@@ -325,7 +331,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
   return (
     <div>
       <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-10 items-center gap-1.5 text-[12px] font-bold text-muted transition hover:text-primary"><ArrowLeft size={14} className="rotate-180" />العودة إلى الامتحانات</button>
-      <PageHeader eyebrow="بناء جديد" title="أنشئ امتحاناً" description="أضف التفاصيل والأسئلة. بعد الحفظ انشر الامتحان ثم افتح الجلسة — الطلاب يدخلون بأكوادهم الشخصية." />
+      <PageHeader eyebrow="بناء جديد" title="أنشئ امتحاناً" description="أضف التفاصيل والأسئلة. بعد الحفظ انشر الامتحان ثم افتح الجلسة — يراه ويبدأه مباشرة الطلاب المسجلون لديك في المرحلة والصف المطابقين." />
 
       {error ? <Alert tone="danger" className="mb-4" onClose={() => setError('')}>{error}</Alert> : null}
 
@@ -343,6 +349,20 @@ export default function ExamForm({ token, onBack, onCreated }) {
               <Field label="وصف مختصر" id="exam-description" hint="اختياري، لكنه يساعد الطالب على التأكد من الامتحان الصحيح.">
                 <Textarea id="exam-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="ما الذي يغطيه هذا الامتحان؟" maxLength={500} className="min-h-20" />
               </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="المرحلة التعليمية" id="exam-stage" hint="يرى الامتحان طلاب هذه المرحلة فقط.">
+                  <Select id="exam-stage" value={stage} onChange={(event) => { setStage(event.target.value); setGrade(''); }}>
+                    <option value="">اختر المرحلة</option>
+                    {EDUCATION_STAGES.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </Select>
+                </Field>
+                <Field label="الصف الدراسي" id="exam-grade" hint="يجب أن يطابق صف الطالب المسجل لديك.">
+                  <Select id="exam-grade" value={grade} onChange={(event) => setGrade(event.target.value)} disabled={!stage}>
+                    <option value="">{stage ? 'اختر الصف' : 'اختر المرحلة أولاً'}</option>
+                    {gradesForStage(stage).map((item) => <option key={item} value={item}>{item}</option>)}
+                  </Select>
+                </Field>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="المدة بالدقائق" id="exam-duration">
                   <Input id="exam-duration" type="number" min="1" max="300" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} />
@@ -401,6 +421,8 @@ export default function ExamForm({ token, onBack, onCreated }) {
             <dl className="grid gap-2">
               {[
                 ['العنوان', title || 'بدون عنوان'],
+                ['المرحلة', stage || 'غير محددة'],
+                ['الصف', grade || 'غير محدد'],
                 ['الأسئلة', `${formatNumber(questions.length)} سؤال`],
                 ['الدرجة الكلية', `${formatNumber(totalPoints)} درجة`],
                 ['المدة', formatDuration(durationMinutes || 0)],
@@ -414,7 +436,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
             </dl>
             <div className="mt-3 rounded-[11px] bg-surface-soft p-3 text-[11px] leading-5 text-muted">
               <span className="mb-1 flex items-center gap-1 font-bold text-ink"><Info size={12} className="text-primary" />بعد الحفظ</span>
-              سيُحفظ الامتحان كمسودة. انشره ثم افتح الجلسة من صفحة الإدارة، وسيحضر الطلاب بأكوادهم الشخصية.
+              سيُحفظ الامتحان كمسودة. انشره ثم افتح الجلسة من صفحة الإدارة، وسيظهر تلقائياً للطلاب المؤهلين في المرحلة والصف المختارين.
             </div>
             <Button type="submit" loading={busy} icon={Save} className="mt-3 w-full">حفظ الامتحان</Button>
           </Card>
@@ -452,7 +474,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
         open={Boolean(created)}
         onClose={() => onCreated(created)}
         title="تم حفظ الامتحان"
-        description="الامتحان محفوظ كمسودة. لا توجد أكواد للامتحان: انشره ثم افتح الجلسة، وسيظهر لك الطلاب تلقائياً بأكوادهم الشخصية بعد دخولهم."
+        description="الامتحان محفوظ كمسودة. انشره ثم افتح الجلسة، وسيظهر تلقائياً للطلاب المسجلين لديك في المرحلة والصف المختارين."
         icon={CheckCircle2}
         tone="success"
         footer={<Button size="sm" iconEnd={ArrowLeft} onClick={() => onCreated(created)}>إدارة الامتحان</Button>}
@@ -464,7 +486,7 @@ export default function ExamForm({ token, onBack, onCreated }) {
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
             <span className="text-[11.5px] font-bold text-muted">الطلاب</span>
-            <span className="text-[11px] text-primary">يدخلون بأكوادهم الشخصية</span>
+            <span className="text-[11px] text-primary">المطابقون للمرحلة والصف</span>
           </div>
         </div>
       </Modal>

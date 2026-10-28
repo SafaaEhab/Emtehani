@@ -90,7 +90,7 @@ export default function ExamsPage({ token, onOpenExam, onCreate }) {
     try {
       const result = await request(`/api/exams/${exam.id}/publish`, { token, method: 'PUT' });
       setItems((current) => current.map((item) => item.id === exam.id ? { ...item, isPublished: result.isPublished, status: result.status } : item));
-      setNotice(result.isPublished ? 'تم نشر الامتحان. افتح الجلسة في وقتها وسيظهر طلابك تلقائياً بعد دخولهم بأكوادهم الشخصية.' : 'تم إلغاء نشر الامتحان وإعادته للمسودات.');
+      setNotice(result.isPublished ? 'تم نشر الامتحان. سيظهر للطلاب المؤهلين في مرحلته وصفه، وافتح الجلسة في وقتها.' : 'تم إلغاء نشر الامتحان وإعادته للمسودات.');
       load(true);
     } catch (err) {
       setError(err.message);
@@ -119,7 +119,7 @@ export default function ExamsPage({ token, onOpenExam, onCreate }) {
       <PageHeader
         eyebrow="إدارة المحتوى"
         title="الامتحانات"
-        description="أنشئ الامتحانات وأدر النشر والجلسات. الجلسات لا تفتح تلقائياً، والطلاب يحضرون بأكوادهم الشخصية."
+        description="أنشئ الامتحانات وأدر النشر والجلسات. الجلسات لا تفتح تلقائياً، ويظهر الامتحان للطلاب المسجلين المطابقين لمرحلته وصفه."
         action={
           <>
             <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={() => load(true)}>تحديث</Button>

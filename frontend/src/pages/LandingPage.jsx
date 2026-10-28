@@ -7,10 +7,10 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
-  Code2,
   Download,
   ExternalLink,
   FileQuestion,
+  GraduationCap,
   LockKeyhole,
   Mail,
   Menu,
@@ -147,9 +147,9 @@ function LivePreview() {
         transition={{ delay: 0.55, duration: 0.5 }}
         className="absolute -bottom-7 -right-3 hidden w-[190px] rounded-[16px] border border-line bg-surface p-3 shadow-[0_20px_50px_-28px_rgba(15,23,42,.5)] sm:block"
       >
-        <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold text-muted"><Code2 size={11} className="text-primary" />كود الطالب</div>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold text-muted"><GraduationCap size={11} className="text-primary" />المرحلة والصف</div>
         <div className="flex items-center justify-between gap-2">
-          <strong className="ui-ltr font-mono text-[19px] font-bold tracking-[0.18em] text-ink">482913</strong>
+          <strong className="text-[12px] font-bold text-ink">ثانوي · الثالث الثانوي</strong>
           <span className="grid size-6 place-items-center rounded-full bg-emerald-soft text-emerald"><Check size={12} /></span>
         </div>
       </motion.div>
@@ -266,7 +266,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
               </motion.h1>
 
               <motion.p variants={fadeUp} initial="hidden" animate="show" custom={0.18} className="mx-auto mt-5 max-w-[540px] text-[13.5px] leading-8 text-muted sm:text-[15px] lg:mx-0">
-                أنشئ الامتحان، وزّع كوداً خاصاً لكل طالب، افتح الجلسة، وتابع كل محاولة لحظة بلحظة. واجهة عربية واحدة، بدون تعقيد.
+                أنشئ الامتحان، وحدّد مرحلته وصفه، افتح الجلسة، وتابع كل محاولة لحظة بلحظة. واجهة عربية واحدة، بدون تعقيد.
               </motion.p>
 
               <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0.26} className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row lg:justify-start">
@@ -302,14 +302,14 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
             <SectionHeading eyebrow="كل ما تحتاجه" title="من إنشاء الامتحان إلى آخر نتيجة." description="أدوات مترابطة تقلّل العمل اليدوي وتمنحك صورة واضحة عن الجلسة، بدون تبديل بين عشر أدوات." />
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <FeatureCard icon={LockKeyhole} title="كود خاص لكل طالب" description="لا مشاركة روابط ولا دخول مجهول. كل كود مرتبط بحساب الطالب، ولا يمكن استخدامه من حساب آخر." className="sm:col-span-2 lg:col-span-1" tone="primary">
+              <FeatureCard icon={GraduationCap} title="ظهور حسب المرحلة والصف" description="لا روابط ولا أكواد يدوية. يرى الطالب امتحانات مدرسيه المطابقة لمرحلته وصفه فقط، ويبدأها من حسابه مباشرة." className="sm:col-span-2 lg:col-span-1" tone="primary">
                 <div className="mt-5 rounded-[13px] border border-line bg-surface-soft p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-muted">كود الطالب</span>
+                    <span className="text-[9px] font-bold text-muted">المرحلة والصف</span>
                     <Badge tone="emerald" dot>مرتب بالحساب</Badge>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <strong className="ui-ltr font-mono text-[22px] font-bold tracking-[0.2em] text-ink">482913</strong>
+                    <strong className="text-[13px] font-bold text-ink">ثانوي · الثالث الثانوي</strong>
                     <span className="text-[9px] text-subtle">سارة أحمد</span>
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
               <div className="absolute inset-x-[16%] top-8 hidden h-px bg-line md:block" />
               {[
                 { step: '01', icon: FileQuestion, title: 'أنشئ الامتحان', text: 'أضف الأسئلة والدرجات والمدة، وحدّد موعد الجلسة إن أردت.' },
-                { step: '02', icon: Users, title: 'كود لكل طالب', text: 'كل حساب طالب يمتلك كوداً شخصياً ثابتاً يتولد تلقائياً، ولا يعمل إلا من حسابه.' },
+                { step: '02', icon: GraduationCap, title: 'مرحلة وصف دقيقان', text: 'حدّد المرحلة والصف عند إنشاء الامتحان، ولن يظهر إلا للطلاب المؤهلين المسجلين لديك.' },
                 { step: '03', icon: Radio, title: 'افتح وتابع', text: 'افتح الجلسة، راقب الحضور والتسليم، وتحكّم بالوقت من لوحة واحدة.' },
               ].map((item) => (
                 <motion.div key={item.step} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="relative rounded-card border border-line bg-surface p-5 shadow-soft">
@@ -389,7 +389,7 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
             <div className="grid gap-2.5">
               {[
                 ['هل أحتاج تثبيت أي برنامج؟', 'لا. المنصة تعمل من المتصفح على الكمبيوتر أو الجوال. سجّل الدخول وابدأ.'],
-                ['كيف يستلم الطالب كود امتحانه؟', 'يتولد لكل طالب كود شخصي ثابت من 6 أرقام تلقائياً عند إنشاء حسابه، ويجده دائماً في مساحته الرئيسية.'],
+                ['كيف يدخل الطالب الامتحان؟', 'بعد تسجيل الدخول تظهر للطالب امتحانات مدرسيه المطابقة لمرحلته وصفه. يختار الامتحان ليبدأ أو يستكمل محاولته مباشرة دون الحاجة إلى كود.'],
                 ['هل يمكن إيقاف الامتحان مؤقتاً؟', 'نعم. عند الإيقاف يتوقف الوقت، وعند الاستئناف يُضاف زمن التوقف تلقائياً إلى وقت الطلاب.'],
                 ['هل تصحح الأسئلة المقالية تلقائياً؟', 'الاختيار من متعدد والصواب والخطأ تُصحح تلقائياً. المقالات تظهر في قائمة مراجعة يدوية للمدرس.'],
               ].map(([question, answer]) => (

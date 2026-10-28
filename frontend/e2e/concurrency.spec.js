@@ -3,7 +3,8 @@ import {
   apiJson,
   apiResponse,
   createExam,
-  enterCode,
+  enrollStudent,
+  enterExam,
   getPaper,
   openExam,
   registerAndLogin,
@@ -15,6 +16,7 @@ test('concurrent autosave and submit leave one coherent submission', async ({ re
 
   const teacher = await registerAndLogin(request, 'Teacher', 'مدرس تزامن');
   const student = await registerAndLogin(request, 'Student', 'طالب تزامن');
+  await enrollStudent(request, teacher, student);
   const exam = await createExam(request, teacher.token, {
     questions: [{
       text: 'سؤال التزامن',
@@ -24,9 +26,8 @@ test('concurrent autosave and submit leave one coherent submission', async ({ re
       points: 1,
     }],
   });
-  const code = student.studentCode;
   await openExam(request, teacher.token, exam.id);
-  await enterCode(request, student.token, code);
+  await enterExam(request, student.token, exam.id);
   const started = await startExam(request, student.token, exam.id);
   const paper = await getPaper(request, student.token, exam.id);
   const answers = paper.questions.map((question) => ({

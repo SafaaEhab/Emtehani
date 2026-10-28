@@ -22,8 +22,14 @@ test('open teacher registration and Arabic RTL student login', async ({ page, br
   await page.locator('#auth-name').fill(teacher.name);
   await page.locator('#auth-email').fill(teacher.email);
   await page.locator('#auth-password').fill(PASSWORD);
+  await page.locator('button[aria-pressed]').filter({ hasText: 'طالب' }).click();
+  await expect(page.locator('#auth-stage')).toBeVisible();
+  await expect(page.locator('#auth-grade')).toBeVisible();
+  await page.locator('#auth-stage').selectOption('ثانوي');
+  await page.locator('#auth-grade').selectOption('الصف الثالث الثانوي');
   await page.locator('button[aria-pressed]').filter({ hasText: 'مدرس' }).click();
-  await expect(page.locator('#auth-invite')).toBeVisible();
+  await expect(page.locator('#auth-stage')).toHaveCount(0);
+  await expect(page.locator('#auth-invite')).toHaveCount(0);
   await page.locator('input[type="checkbox"]').check();
   await page.getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();
   await expect(page.getByText(/تم إنشاء الحساب/).first()).toBeVisible();

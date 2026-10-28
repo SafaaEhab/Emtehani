@@ -4,6 +4,8 @@ import { expect } from '@playwright/test';
 export const API_URL = process.env.E2E_API_URL
   || `http://127.0.0.1:${process.env.E2E_API_PORT || '5099'}`;
 export const PASSWORD = 'E2ePass!2026';
+export const DEFAULT_STAGE = 'ثانوي';
+export const DEFAULT_GRADE = 'الصف الثالث الثانوي';
 
 export function uniqueSuffix() {
   return randomUUID().slice(0, 8);
@@ -30,13 +32,19 @@ export async function apiResponse(request, method, path, token, data) {
   return requestApi(request, method, path, token, data);
 }
 
-export async function registerAndLogin(request, role, namePrefix) {
+export async function registerAndLogin(request, role, namePrefix, education = {}) {
   const suffix = uniqueSuffix();
   const account = {
     fullName: `${namePrefix} ${suffix}`,
     email: `${role.toLowerCase()}-${suffix}@example.com`,
     password: PASSWORD,
     role,
+    ...(role === 'Student'
+      ? {
+          stage: education.stage || DEFAULT_STAGE,
+          grade: education.grade || DEFAULT_GRADE,
+        }
+      : {}),
   };
   await apiJson(request, 'POST', '/api/auth/register', null, account);
   const login = await apiJson(request, 'POST', '/api/auth/login', null, {
@@ -83,6 +91,8 @@ export async function createExam(request, token, options = {}) {
     durationMinutes: options.durationMinutes || 30,
     maxAttempts: 1,
     allowResumeAfterFocusLoss: true,
+    stage: options.stage || DEFAULT_STAGE,
+    grade: options.grade || DEFAULT_GRADE,
     questions: options.questions || [
       {
         text: `ما ناتج 2 + 2؟ ${suffix}`,
@@ -109,8 +119,8 @@ export async function enrollStudent(request, teacher, student) {
   await apiJson(request, 'PUT', `/api/teacher/requests/${row.id}`, teacher.token, { action: 'accept' });
 }
 
-export async function enterCode(request, studentToken, code) {
-  return apiJson(request, 'POST', '/api/exams/enter-code', studentToken, { code });
+export async function enterExam(request, studentToken, examId) {
+  return apiJson(request, 'POST', `/api/exams/${examId}/enter`, studentToken);
 }
 
 export async function startExam(request, studentToken, examId) {

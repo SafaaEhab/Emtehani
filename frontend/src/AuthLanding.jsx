@@ -198,7 +198,7 @@ export default function AuthLanding({
         <div className="signin-art-inner">
           <div className="signin-art-copy">
             <h2>كل امتحان،<br /><span>خطوة للأمام.</span></h2>
-            <p>أنشئ اختباراتك، شارك الكود، وتابع النتائج في مساحة واحدة واضحة وآمنة.</p>
+            <p>أنشئ اختباراتك، حدّد المرحلة والصف، وتابع النتائج في مساحة واحدة واضحة وآمنة.</p>
           </div>
           <ExamPreview />
         </div>

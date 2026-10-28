@@ -43,6 +43,32 @@ public static class ExamWorkflowSchema
                 END;
                 """, cancellationToken);
             await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.TeacherStudentRequests', 'UnlinkedAtUtc') IS NULL
+                    ALTER TABLE [TeacherStudentRequests] ADD [UnlinkedAtUtc] datetime2 NULL;
+                IF COL_LENGTH('dbo.TeacherStudentRequests', 'SuspendedAtUtc') IS NULL
+                    ALTER TABLE [TeacherStudentRequests] ADD [SuspendedAtUtc] datetime2 NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF OBJECT_ID(N'dbo.TeacherStudentExamBans', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [TeacherStudentExamBans] (
+                        [Id] uniqueidentifier NOT NULL,
+                        [TeacherId] uniqueidentifier NOT NULL,
+                        [StudentId] uniqueidentifier NOT NULL,
+                        [ExamId] uniqueidentifier NOT NULL,
+                        [CreatedAtUtc] datetime2 NOT NULL,
+                        CONSTRAINT [PK_TeacherStudentExamBans] PRIMARY KEY ([Id]),
+                        CONSTRAINT [FK_TeacherStudentExamBans_Users_TeacherId] FOREIGN KEY ([TeacherId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+                        CONSTRAINT [FK_TeacherStudentExamBans_Users_StudentId] FOREIGN KEY ([StudentId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION,
+                        CONSTRAINT [FK_TeacherStudentExamBans_Exams_ExamId] FOREIGN KEY ([ExamId]) REFERENCES [Exams] ([Id]) ON DELETE CASCADE
+                    );
+                END;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name] = N'IX_TeacherStudentExamBans_ExamId_StudentId' AND [object_id] = OBJECT_ID(N'dbo.TeacherStudentExamBans'))
+                    CREATE UNIQUE INDEX [IX_TeacherStudentExamBans_ExamId_StudentId] ON [TeacherStudentExamBans] ([ExamId], [StudentId]);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name] = N'IX_TeacherStudentExamBans_TeacherId_StudentId' AND [object_id] = OBJECT_ID(N'dbo.TeacherStudentExamBans'))
+                    CREATE INDEX [IX_TeacherStudentExamBans_TeacherId_StudentId] ON [TeacherStudentExamBans] ([TeacherId], [StudentId]);
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
                 INSERT INTO [TeacherStudentRequests] ([Id], [TeacherId], [StudentId], [Status], [CreatedAtUtc], [DecidedAtUtc])
                 SELECT NEWID(), x.[TeacherId], x.[StudentId], N'Accepted', GETUTCDATE(), GETUTCDATE()
                 FROM (SELECT DISTINCT e.[TeacherId], p.[StudentId] FROM [ExamParticipants] p INNER JOIN [Exams] e ON e.[Id] = p.[ExamId]) x
@@ -63,6 +89,27 @@ public static class ExamWorkflowSchema
                     ALTER TABLE [Users] ADD [PasswordResetToken] nvarchar(128) NULL;
                 IF COL_LENGTH('dbo.Users', 'PasswordResetExpiresUtc') IS NULL
                     ALTER TABLE [Users] ADD [PasswordResetExpiresUtc] datetime2 NULL;
+                IF COL_LENGTH('dbo.Users', 'Stage') IS NULL
+                    ALTER TABLE [Users] ADD [Stage] nvarchar(32) NULL;
+                IF COL_LENGTH('dbo.Users', 'Grade') IS NULL
+                    ALTER TABLE [Users] ADD [Grade] nvarchar(64) NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Exams', 'Stage') IS NULL
+                    ALTER TABLE [Exams] ADD [Stage] nvarchar(32) NULL;
+                IF COL_LENGTH('dbo.Exams', 'Grade') IS NULL
+                    ALTER TABLE [Exams] ADD [Grade] nvarchar(64) NULL;
+                """, cancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH('dbo.Exams', 'ResultsPublishedAtUtc') IS NULL
+                BEGIN
+                    ALTER TABLE [Exams] ADD [ResultsPublishedAtUtc] datetime2 NULL;
+                    -- Exams finished before this column existed were already visible under the
+                    -- old rules. Publish them once during the upgrade so legacy results do not
+                    -- disappear. Newly finished exams stay unpublished until the teacher
+                    -- explicitly publishes them.
+                    EXEC(N'UPDATE [Exams] SET [ResultsPublishedAtUtc] = GETUTCDATE() WHERE [Status] = N''Finished'';');
+                END;
                 """, cancellationToken);
             await db.Database.ExecuteSqlRawAsync("""
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name] = N'IX_Users_StudentCode' AND [object_id] = OBJECT_ID(N'dbo.Users'))
@@ -125,6 +172,8 @@ public static class ExamWorkflowSchema
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "StudentCode" character varying(12) NOT NULL DEFAULT '';
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "PasswordResetToken" character varying(128) NULL;
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "PasswordResetExpiresUtc" timestamp with time zone NULL;
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Stage" character varying(32) NULL;
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Grade" character varying(64) NULL;
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_StudentCode" ON "Users" ("StudentCode") WHERE "StudentCode" <> '';
                 CREATE TABLE IF NOT EXISTS "ExamParticipants" (
                     "Id" uuid NOT NULL,
@@ -150,6 +199,22 @@ public static class ExamWorkflowSchema
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "PausedAtUtc" timestamp with time zone NULL;
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "AvailableFromUtc" timestamp with time zone NULL;
                 ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "AvailableUntilUtc" timestamp with time zone NULL;
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "Stage" character varying(32) NULL;
+                ALTER TABLE "Exams" ADD COLUMN IF NOT EXISTS "Grade" character varying(64) NULL;
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = current_schema()
+                          AND table_name = 'Exams'
+                          AND column_name = 'ResultsPublishedAtUtc'
+                    ) THEN
+                        ALTER TABLE "Exams" ADD COLUMN "ResultsPublishedAtUtc" timestamp with time zone NULL;
+                        -- Preserve visibility of exams that were already finished before this
+                        -- column existed. Newly finished exams require explicit publication.
+                        UPDATE "Exams" SET "ResultsPublishedAtUtc" = NOW() WHERE "Status" = 'Finished';
+                    END IF;
+                END $$;
                 CREATE TABLE IF NOT EXISTS "TeacherStudentRequests" (
                     "Id" uuid NOT NULL,
                     "TeacherId" uuid NOT NULL,
@@ -163,6 +228,21 @@ public static class ExamWorkflowSchema
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_TeacherStudentRequests_TeacherId_StudentId" ON "TeacherStudentRequests" ("TeacherId", "StudentId");
                 CREATE INDEX IF NOT EXISTS "IX_TeacherStudentRequests_StudentId" ON "TeacherStudentRequests" ("StudentId");
+                ALTER TABLE "TeacherStudentRequests" ADD COLUMN IF NOT EXISTS "UnlinkedAtUtc" timestamp with time zone NULL;
+                ALTER TABLE "TeacherStudentRequests" ADD COLUMN IF NOT EXISTS "SuspendedAtUtc" timestamp with time zone NULL;
+                CREATE TABLE IF NOT EXISTS "TeacherStudentExamBans" (
+                    "Id" uuid NOT NULL,
+                    "TeacherId" uuid NOT NULL,
+                    "StudentId" uuid NOT NULL,
+                    "ExamId" uuid NOT NULL,
+                    "CreatedAtUtc" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_TeacherStudentExamBans" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_TeacherStudentExamBans_Users_TeacherId" FOREIGN KEY ("TeacherId") REFERENCES "Users" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_TeacherStudentExamBans_Users_StudentId" FOREIGN KEY ("StudentId") REFERENCES "Users" ("Id") ON DELETE NO ACTION,
+                    CONSTRAINT "FK_TeacherStudentExamBans_Exams_ExamId" FOREIGN KEY ("ExamId") REFERENCES "Exams" ("Id") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_TeacherStudentExamBans_ExamId_StudentId" ON "TeacherStudentExamBans" ("ExamId", "StudentId");
+                CREATE INDEX IF NOT EXISTS "IX_TeacherStudentExamBans_TeacherId_StudentId" ON "TeacherStudentExamBans" ("TeacherId", "StudentId");
                 INSERT INTO "TeacherStudentRequests" ("Id", "TeacherId", "StudentId", "Status", "CreatedAtUtc", "DecidedAtUtc")
                 SELECT gen_random_uuid(), x."TeacherId", x."StudentId", 'Accepted', NOW(), NOW()
                 FROM (SELECT DISTINCT e."TeacherId", p."StudentId" FROM "ExamParticipants" p INNER JOIN "Exams" e ON e."Id" = p."ExamId") x

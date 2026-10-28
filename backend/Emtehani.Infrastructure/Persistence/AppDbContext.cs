@@ -3,9 +3,14 @@ namespace Emtehani.Infrastructure.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbContext(options) {
  public DbSet<AppUser> Users=>Set<AppUser>(); public DbSet<Exam> Exams=>Set<Exam>(); public DbSet<Question> Questions=>Set<Question>(); public DbSet<ExamParticipant> ExamParticipants=>Set<ExamParticipant>();
  public DbSet<Submission> Submissions=>Set<Submission>(); public DbSet<SubmissionAnswer> Answers=>Set<SubmissionAnswer>(); public DbSet<AuditEvent> AuditEvents=>Set<AuditEvent>(); public DbSet<TeacherStudentRequest> TeacherStudentRequests=>Set<TeacherStudentRequest>();
+ public DbSet<TeacherStudentExamBan> TeacherStudentExamBans=>Set<TeacherStudentExamBan>();
  protected override void OnModelCreating(ModelBuilder b) {
   b.Entity<AppUser>().HasIndex(x=>x.Email).IsUnique();
   b.Entity<AppUser>().Property(x=>x.StudentCode).HasMaxLength(12);
+  b.Entity<AppUser>().Property(x=>x.Stage).HasMaxLength(32);
+  b.Entity<AppUser>().Property(x=>x.Grade).HasMaxLength(64);
+  b.Entity<Exam>().Property(x=>x.Stage).HasMaxLength(32);
+  b.Entity<Exam>().Property(x=>x.Grade).HasMaxLength(64);
   var studentCodeFilter = Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true ? "\"StudentCode\" <> ''" : "[StudentCode] <> ''";
   b.Entity<AppUser>().HasIndex(x=>x.StudentCode).IsUnique().HasDatabaseName("IX_Users_StudentCode").HasFilter(studentCodeFilter);
   b.Entity<Exam>().HasMany(x=>x.Questions).WithOne(x=>x.Exam).HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Cascade);
@@ -26,5 +31,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<TeacherStudentRequest>().HasOne(x=>x.Student).WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.NoAction);
   b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.StudentId}).IsUnique();
   b.Entity<TeacherStudentRequest>().HasIndex(x=>x.StudentId);
+  b.Entity<TeacherStudentExamBan>().HasOne(x=>x.Exam).WithMany().HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<TeacherStudentExamBan>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<TeacherStudentExamBan>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.NoAction);
+  b.Entity<TeacherStudentExamBan>().HasIndex(x=>new{x.ExamId,x.StudentId}).IsUnique().HasDatabaseName("IX_TeacherStudentExamBans_ExamId_StudentId");
+  b.Entity<TeacherStudentExamBan>().HasIndex(x=>new{x.TeacherId,x.StudentId}).HasDatabaseName("IX_TeacherStudentExamBans_TeacherId_StudentId");
  }
 }

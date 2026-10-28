@@ -11,6 +11,7 @@ import {
   Radio,
   RefreshCw,
   Save,
+  Send,
   Square,
   TimerReset,
   Users,
@@ -22,7 +23,6 @@ import {
   Badge,
   Button,
   Card,
-  CopyChip,
   EmptyState,
   Field,
   Input,
@@ -49,6 +49,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
+  const [publishResultsOpen, setPublishResultsOpen] = useState(false);
   const [syncedAt, setSyncedAt] = useState(Date.now());
   const [tick, setTick] = useState(0);
   const [availableFrom, setAvailableFrom] = useState('');
@@ -71,7 +72,12 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
       setCounts(live.counts || null);
       setSyncedAt(Date.now());
       setTick(0);
-      setExam((current) => ({ ...current, status: live.examStatus, title: live.examTitle || current.title }));
+      setExam((current) => ({
+        ...current,
+        status: live.examStatus,
+        title: live.examTitle || current.title,
+        resultsPublishedAtUtc: live.resultsPublishedAtUtc ?? current.resultsPublishedAtUtc,
+      }));
       setError('');
     } catch (err) {
       setError(err.message);
@@ -133,7 +139,26 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
     try {
       const result = await request(`/api/exams/${exam.id}/publish`, { token, method: 'PUT' });
       setExam((current) => ({ ...current, isPublished: result.isPublished, status: result.status }));
-      setNotice('تم نشر الامتحان. افتح الجلسة في وقتها وسيظهر الطلاب تلقائياً بعد دخولهم بأكوادهم الشخصية.');
+      setNotice('تم نشر الامتحان. افتح الجلسة في وقتها وسيظهر للطلاب المؤهلين تلقائياً في قائمتهم.');
+      await load(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function publishResults() {
+    setBusy('publish-results');
+    setError('');
+    setNotice('');
+    try {
+      const result = await request(`/api/exams/${exam.id}/results/publish`, { token, method: 'POST' });
+      setExam((current) => ({ ...current, resultsPublishedAtUtc: result.resultsPublishedAtUtc }));
+      setPublishResultsOpen(false);
+      setNotice(result.alreadyPublished
+        ? 'النتائج منشورة بالفعل للطلاب.'
+        : 'تم نشر النتائج. أصبحت الدرجات والإجابات الصحيحة وملاحظاتك متاحة للطلاب.');
       await load(true);
     } catch (err) {
       setError(err.message);
@@ -161,19 +186,6 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
       });
       setExam((current) => ({ ...current, availableFromUtc: result.availableFromUtc, availableUntilUtc: result.availableUntilUtc }));
       setNotice('تم تحديث فترة إتاحة الامتحان.');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  async function exportCodes() {
-    setBusy('export-codes');
-    setError('');
-    try {
-      const blob = await request(`/api/exams/${exam.id}/participants/export`, { token });
-      downloadBlob(blob, `${exam.title.replace(/[\\/:*?"<>|]/g, '-')}-student-codes.csv`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -275,10 +287,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
           <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <div className="flex items-center gap-2"><h2 className="font-display text-[15px] font-semibold text-ink">الطلاب</h2><Badge tone="primary">{formatNumber(total)}</Badge></div>
-              <p className="mt-1 text-[11.5px] leading-5 text-muted">كل طالب يدخل بكوده الشخصي المرتبط بحسابه، وسيظهر هنا باسمه وكوده تلقائياً.</p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <Button variant="secondary" size="xs" icon={Download} loading={busy === 'export-codes'} onClick={exportCodes} disabled={!participants.length}>تصدير CSV</Button>
+              <p className="mt-1 text-[11.5px] leading-5 text-muted">يظهر هنا الطلاب المسجلون لديك والمطابقون لمرحلة الامتحان وصفه تلقائياً عند حضورهم.</p>
             </div>
           </div>
 
@@ -286,7 +295,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
             <EmptyState
               icon={Users}
               title="لا يوجد طلاب حاضرون بعد"
-              description={exam.isPublished ? 'انشر الامتحان وافتح الجلسة في وقتها، وسيظهر الطلاب هنا مباشرة بعد إدخالهم أكوادهم الشخصية.' : 'انشر الامتحان أولاً، ثم افتح الجلسة في وقتها ليتمكن الطلاب من الحضور.'}
+              description={exam.isPublished ? 'انشر الامتحان وافتح الجلسة في وقتها، وسيظهر هنا الطلاب المؤهلون تلقائياً عند دخولهم.' : 'انشر الامتحان أولاً، ثم افتح الجلسة في وقتها ليتمكن الطلاب المؤهلون من الحضور.'}
               action={!exam.isPublished ? <Button size="sm" icon={Radio} onClick={publish} loading={busy === 'publish'}>نشر الامتحان</Button> : null}
             />
           ) : (
@@ -296,7 +305,6 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                   <thead>
                     <tr className="border-b border-line bg-surface-soft/60 text-[11px] font-extrabold text-muted">
                       <th className="px-5 py-3">الطالب</th>
-                      <th className="px-3 py-3">كود الطالب</th>
                       <th className="px-3 py-3">الحالة</th>
                       <th className="px-3 py-3">الوقت المتبقي</th>
                       <th className="px-3 py-3">الدرجة</th>
@@ -317,7 +325,6 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3"><CopyChip value={participant.code} label="كود الطالب" /></td>
                           <td className="px-3 py-3"><StatusChip status={participant.status} /></td>
                           <td className="px-3 py-3">
                             {remaining == null ? <span className="text-[11.5px] text-subtle">—</span> : <span className={cn('ui-number text-[12px] font-bold', remaining < 300 ? 'text-danger' : 'text-ink')}>{formatTimer(remaining)}</span>}
@@ -344,7 +351,7 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                         <StatusChip status={participant.status} />
                       </div>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
-                        <CopyChip value={participant.code} label="كود الطالب" />
+                        <span className="text-[10.5px] text-subtle">الطلاب المؤهلون يظهرون تلقائياً</span>
                         <div className="flex items-center gap-2">
                           {remaining != null ? <span className={cn('ui-number text-[11px] font-bold', remaining < 300 ? 'text-danger' : 'text-muted')}>{formatTimer(remaining)}</span> : null}
                         </div>
@@ -371,7 +378,16 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
                 <Button variant="danger" size="sm" icon={Square} onClick={() => setCloseOpen(true)}>إنهاء الجلسة</Button>
               </div>
             ) : exam.status === 'Finished' ? (
-              <Button variant="secondary" size="sm" icon={BarChart3} onClick={() => onOpenResults(exam)}>فتح النتائج</Button>
+              <div className="grid gap-2">
+                {exam.resultsPublishedAtUtc ? (
+                  <div className="rounded-[11px] border border-emerald/20 bg-emerald-soft px-3 py-2.5 text-[10.5px] font-bold leading-5 text-emerald">
+                    تم نشر النتائج للطلاب في {formatDate(exam.resultsPublishedAtUtc)}.
+                  </div>
+                ) : (
+                  <Button variant="success" size="sm" icon={Send} onClick={() => setPublishResultsOpen(true)}>نشر النتائج للطلاب</Button>
+                )}
+                <Button variant="secondary" size="sm" icon={BarChart3} onClick={() => onOpenResults(exam)}>فتح النتائج</Button>
+              </div>
             ) : (
               <div className="grid gap-2">
                 {!exam.isPublished ? <Button size="sm" icon={Radio} loading={busy === 'publish'} onClick={publish}>نشر الامتحان</Button> : null}
@@ -398,13 +414,28 @@ export default function TeacherExamDetail({ token, exam: initialExam, onBack, on
         open={closeOpen}
         onClose={() => setCloseOpen(false)}
         title="إنهاء الجلسة نهائياً؟"
-        description="سيتم تصحيح المحاولات النشطة تلقائياً، وتسجيل الطلاب الذين لم يبدأوا كغائبين. لا يمكن استئناف الجلسة بعد الإنهاء."
+        description="سيتم تصحيح المحاولات النشطة تلقائياً، وتسجيل الطلاب الذين لم يبدأوا كغائبين. لا يمكن استئناف الجلسة بعد الإنهاء. لن تظهر النتائج للطلاب حتى تنشرها بعد اكتمال التصحيح."
         icon={AlertTriangle}
         tone="danger"
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setCloseOpen(false)}>إلغاء</Button>
             <Button variant="danger" size="sm" loading={busy === 'close'} onClick={() => runState('close', 'تم إنهاء الجلسة وتحديث حالة الطلاب.')}>نعم، أنهِ الجلسة</Button>
+          </>
+        }
+      />
+
+      <Modal
+        open={publishResultsOpen}
+        onClose={() => setPublishResultsOpen(false)}
+        title="نشر النتائج للطلاب؟"
+        description="ستظهر الدرجات والإجابات الصحيحة وملاحظات المدرس لجميع الطلاب المؤهلين. تأكد من اكتمال تصحيح الأسئلة المقالية قبل النشر."
+        icon={Send}
+        tone="success"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setPublishResultsOpen(false)}>إلغاء</Button>
+            <Button variant="success" size="sm" loading={busy === 'publish-results'} onClick={publishResults}>نعم، انشر النتائج</Button>
           </>
         }
       />

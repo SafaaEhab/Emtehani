@@ -197,7 +197,7 @@ export default function LobbyPage({ token, joined, onStarted, onResults, onExit 
           </div>
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 rounded-[13px] border border-line bg-surface-soft px-3.5 py-3 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2 text-[11.5px] text-muted"><ShieldCheck size={14} className="text-emerald" />هويتك مؤكدة. لا تشارك كودك مع أي شخص.</div>
+            <div className="flex items-center gap-2 text-[11.5px] text-muted"><ShieldCheck size={14} className="text-emerald" />هويتك مؤكدة والدخول مرتبط بحسابك فقط.</div>
             <Button variant="ghost" size="xs" icon={DoorOpen} onClick={onExit}>الخروج</Button>
           </div>
         </div>

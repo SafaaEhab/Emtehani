@@ -15,9 +15,9 @@ import {
   Menu,
   Moon,
   PlusCircle,
-  Radio,
   Sun,
   UserRound,
+  Users,
   X,
 } from 'lucide-react';
 import { Avatar, cn, IconButton, Logo, StatusChip } from './ui';
@@ -29,13 +29,13 @@ const teacherNav = [
   { key: 'results', label: 'النتائج', icon: BarChart3 },
   { key: 'essays', label: 'مراجعة المقالات', icon: ClipboardCheck },
   { key: 'requests', label: 'طلبات الطلاب', icon: UserRound },
+  { key: 'students', label: 'إدارة الطلاب', shortLabel: 'الطلاب', icon: Users },
   { key: 'audit', label: 'سجل النشاط', icon: History },
 ];
 
 const studentNav = [
   { key: 'dashboard', label: 'نظرة عامة', shortLabel: 'الرئيسية', icon: LayoutDashboard },
   { key: 'available', label: 'الامتحانات المتاحة', shortLabel: 'المتاحة', icon: BookOpenCheck },
-  { key: 'join', label: 'دخول امتحان', shortLabel: 'دخول', icon: Radio },
   { key: 'results', label: 'نتائجي', icon: BarChart3 },
   { key: 'teachers', label: 'المدرسون', icon: GraduationCap },
 ];
@@ -48,9 +48,9 @@ const pageMeta = {
   results: { title: 'النتائج والتحليلات', eyebrow: 'متابعة الأداء' },
   essays: { title: 'مراجعة المقالات', eyebrow: 'تصحيح يدوي' },
   requests: { title: 'طلبات الطلاب', eyebrow: 'إدارة التسجيل' },
+  students: { title: 'إدارة الطلاب', eyebrow: 'متابعة الطلاب' },
   teachers: { title: 'المدرسون', eyebrow: 'اختيار المدرس' },
   audit: { title: 'سجل النشاط', eyebrow: 'تتبع العمليات' },
-  join: { title: 'دخول امتحان', eyebrow: 'بوابة الطالب' },
   available: { title: 'الامتحانات المتاحة', eyebrow: 'بوابة الطالب' },
   lobby: { title: 'غرفة الانتظار', eyebrow: 'الامتحان' },
   take: { title: 'أداء الامتحان', eyebrow: 'جلسة نشطة' },

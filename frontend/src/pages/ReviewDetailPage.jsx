@@ -6,6 +6,7 @@ import {
   EyeOff,
   FileText,
   GraduationCap,
+  LockKeyhole,
   PenLine,
   ScanEye,
   ShieldAlert,
@@ -67,7 +68,8 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
   }
 
   const answers = data.answers || [];
-  const canSeeCorrect = isTeacher || answers.some((answer) => answer.correctAnswer !== null);
+  const resultsAvailable = isTeacher || Boolean(data.resultsAvailable);
+  const canSeeCorrect = resultsAvailable;
   const essayAnswers = answers.filter((answer) => answer.type === 'Essay');
   const pendingEssays = essayAnswers.filter((answer) => answer.awardedPoints == null);
   const value = percent(data.score, data.maxScore);
@@ -91,19 +93,35 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
       <Card className={cn('mb-4 overflow-hidden p-4 sm:p-5', data.status === 'NeedsReview' && 'border-warning/30')}>
         <div className="grid items-center gap-5 md:grid-cols-[auto_1fr_auto]">
           <div className="flex items-center gap-4">
-            <div className="relative grid size-24 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(${value >= 60 ? 'var(--app-emerald)' : value >= 50 ? 'var(--app-warning)' : 'var(--app-danger)'} ${value * 3.6}deg, var(--app-surface-soft) 0)` }}>
-              <div className="grid size-[76px] place-items-center rounded-full bg-surface">
-                <div className="text-center">
-                  <strong className="ui-number block font-display text-[24px] font-semibold leading-none text-ink">{formatNumber(value)}%</strong>
-                  <span className="mt-1 block text-[10.5px] text-muted">النسبة</span>
+            {resultsAvailable ? (
+              <>
+                <div className="relative grid size-24 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(${value >= 60 ? 'var(--app-emerald)' : value >= 50 ? 'var(--app-warning)' : 'var(--app-danger)'} ${value * 3.6}deg, var(--app-surface-soft) 0)` }}>
+                  <div className="grid size-[76px] place-items-center rounded-full bg-surface">
+                    <div className="text-center">
+                      <strong className="ui-number block font-display text-[24px] font-semibold leading-none text-ink">{formatNumber(value)}%</strong>
+                      <span className="mt-1 block text-[10.5px] text-muted">النسبة</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div>
-              <p className="text-[11.5px] font-bold text-muted">الدرجة</p>
-              <p className="ui-number mt-1 font-display text-[28px] font-semibold leading-none tracking-[-0.04em] text-ink">{scoreText(data.score, data.maxScore)}</p>
-              <div className="mt-2"><StatusChip status={data.status} /></div>
-            </div>
+                <div>
+                  <p className="text-[11.5px] font-bold text-muted">الدرجة</p>
+                  <p className="ui-number mt-1 font-display text-[28px] font-semibold leading-none tracking-[-0.04em] text-ink">{scoreText(data.score, data.maxScore)}</p>
+                  <div className="mt-2"><StatusChip status={data.status} /></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid size-24 shrink-0 place-items-center rounded-full bg-surface-soft text-warning">
+                  <LockKeyhole size={26} />
+                </div>
+                <div>
+                  <p className="text-[11.5px] font-bold text-muted">النتيجة</p>
+                  <p className="mt-1 font-display text-[18px] font-semibold leading-tight tracking-[-0.03em] text-ink">بانتظار اعتماد النتائج</p>
+                  <p className="mt-1.5 max-w-[210px] text-[10.5px] leading-5 text-muted">ستظهر الدرجة بعد انتهاء جلسة الامتحان واعتماد المدرس للنتائج.</p>
+                  <div className="mt-2"><StatusChip status={data.status} /></div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2 border-y border-line py-3 md:border-x md:border-y-0 md:px-6 md:py-0">
@@ -129,7 +147,7 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
           </div>
         </div>
 
-        {data.status === 'NeedsReview' ? (
+        {resultsAvailable && data.status === 'NeedsReview' ? (
           <div className="mt-4 flex flex-col gap-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3.5 py-3 text-[12px] leading-5 text-warning sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-2"><AlertTriangle size={15} />الدرجة الحالية مؤقتة حتى يتم تصحيح الأسئلة المقالية.</span>
             {isTeacher ? <button type="button" onClick={() => onOpenEssayReview(submissionId)} className="min-h-8 shrink-0 text-[11.5px] font-extrabold underline underline-offset-4">بدء المراجعة</button> : null}
@@ -137,20 +155,30 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
         ) : null}
       </Card>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={CheckCircleIcon} label="إجابات صحيحة" value={formatNumber(answers.filter((answer) => answer.type !== 'Essay' && Number(answer.awardedPoints) >= Number(answer.points)).length)} tone="emerald" />
-        <StatCard icon={XCircleIcon} label="إجابات خاطئة" value={formatNumber(answers.filter((answer) => answer.type !== 'Essay' && answer.awardedPoints != null && Number(answer.awardedPoints) < Number(answer.points)).length)} tone="danger" />
-        <StatCard icon={PenLine} label="أسئلة مقالية" value={formatNumber(essayAnswers.length)} note={`${formatNumber(pendingEssays.length)} بانتظار التصحيح`} tone="warning" />
-        <StatCard icon={ShieldAlert} label="مؤشرات انتباه" value={formatNumber(flags)} note={data.focusLossDetected ? 'توجد ملاحظات' : 'لا توجد ملاحظات'} tone={flags ? 'warning' : 'emerald'} />
-      </div>
+      {resultsAvailable ? (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard icon={CheckCircleIcon} label="إجابات صحيحة" value={formatNumber(answers.filter((answer) => answer.type !== 'Essay' && Number(answer.awardedPoints) >= Number(answer.points)).length)} tone="emerald" />
+          <StatCard icon={XCircleIcon} label="إجابات خاطئة" value={formatNumber(answers.filter((answer) => answer.type !== 'Essay' && answer.awardedPoints != null && Number(answer.awardedPoints) < Number(answer.points)).length)} tone="danger" />
+          <StatCard icon={PenLine} label="أسئلة مقالية" value={formatNumber(essayAnswers.length)} note={`${formatNumber(pendingEssays.length)} بانتظار التصحيح`} tone="warning" />
+          <StatCard icon={ShieldAlert} label="مؤشرات انتباه" value={formatNumber(flags)} note={data.focusLossDetected ? 'توجد ملاحظات' : 'لا توجد ملاحظات'} tone={flags ? 'warning' : 'emerald'} />
+        </div>
+      ) : (
+        <Card className="mb-4 flex items-start gap-3 border-warning/25 bg-warning-soft/30 p-4 sm:items-center">
+          <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-warning-soft text-warning"><Clock3 size={17} /></span>
+          <div>
+            <p className="text-[12.5px] font-bold text-ink">الدرجات والإجابات الصحيحة محجوبة مؤقتاً</p>
+            <p className="mt-1 text-[11.5px] leading-6 text-muted">تم تسليم محاولتك بنجاح. ستظهر النتيجة والمراجعة الكاملة بعد انتهاء جلسة الامتحان واعتماد النتائج من المدرس.</p>
+          </div>
+        </Card>
+      )}
 
       <div className="mb-3 flex items-center justify-between">
-        <div><h2 className="font-display text-[16px] font-semibold text-ink">مراجعة الإجابات</h2><p className="mt-1 text-[11.5px] text-muted">{canSeeCorrect ? 'تظهر الإجابة الصحيحة بجانب إجابة الطالب.' : 'ستظهر الإجابة الصحيحة بعد اكتمال التصحيح.'}</p></div>
+        <div><h2 className="font-display text-[16px] font-semibold text-ink">مراجعة الإجابات</h2><p className="mt-1 text-[11.5px] text-muted">{canSeeCorrect ? 'تظهر الإجابة الصحيحة بجانب إجابة الطالب.' : 'ستظهر الإجابة الصحيحة والدرجة بعد انتهاء الامتحان واعتماد النتائج.'}</p></div>
         <Badge tone="primary">{formatNumber(answers.length)} سؤال</Badge>
       </div>
 
       <div className="grid gap-2.5">
-        {answers.map((answer, index) => <AnswerReviewCard key={answer.id} answer={answer} index={index} showCorrect={canSeeCorrect} />)}
+        {answers.map((answer, index) => <AnswerReviewCard key={answer.id} answer={answer} index={index} showCorrect={canSeeCorrect} resultsPending={!resultsAvailable} />)}
       </div>
 
       <div className="mt-5 flex justify-center">

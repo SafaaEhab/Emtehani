@@ -14,9 +14,9 @@ import TeacherExamDetail from './pages/TeacherExamDetail';
 import ResultsPage from './pages/ResultsPage';
 import EssaysPage from './pages/EssaysPage';
 import TeacherRequestsPage from './pages/TeacherRequestsPage';
+import TeacherStudentsPage from './pages/TeacherStudentsPage';
 import TeachersPage from './pages/TeachersPage';
 import AuditPage from './pages/AuditPage';
-import JoinExamPage from './pages/JoinExamPage';
 import AvailableExamsPage from './pages/AvailableExamsPage';
 import LobbyPage from './pages/LobbyPage';
 import ExamRoomPage from './pages/ExamRoomPage';
@@ -32,13 +32,13 @@ const teacherTitles = {
   results: 'النتائج والتحليلات',
   essays: 'مراجعة المقالات',
   requests: 'طلبات الطلاب',
+  students: 'إدارة الطلاب',
   audit: 'سجل النشاط',
 };
 
 const studentTitles = {
   dashboard: 'نظرة عامة',
   available: 'الامتحانات المتاحة',
-  join: 'دخول امتحان',
   results: 'نتائجي',
   teachers: 'المدرسون',
 };
@@ -157,7 +157,7 @@ export default function App() {
     if (mode === 'register') {
       return { registered: true, message: data.message, studentCode: data.studentCode };
     }
-    const nextUser = { fullName: data.fullName, email: data.email, role: data.role, studentCode: data.studentCode || '' };
+    const nextUser = { fullName: data.fullName, email: data.email, role: data.role, studentCode: data.studentCode || '', stage: data.stage || '', grade: data.grade || '' };
     storeAuth(data.token, nextUser);
     setToken(data.token);
     setUser(nextUser);
@@ -201,9 +201,17 @@ export default function App() {
   function navigate(next) {
     if (next === 'portfolio') { openPortfolio(); return; }
     if (next === 'exam-detail' && !selectedExam) { setPage('exams'); return; }
-    if (next === 'lobby' && !joined) { setPage('join'); return; }
+    if (next === 'lobby' && !joined) { setPage('dashboard'); return; }
     if (next === 'take' && !paper) { setPage('dashboard'); return; }
     setPage(next);
+  }
+
+  function updateEducation(profile) {
+    setUser((current) => {
+      const next = { ...current, ...profile };
+      storeAuth(token, next);
+      return next;
+    });
   }
 
   function openExam(exam) {
@@ -326,9 +334,9 @@ export default function App() {
   if (page === 'dashboard') {
     content = isTeacher
       ? <TeacherDashboard token={token} user={user} onNavigate={navigate} onCreate={() => setPage('create')} onOpenExam={openExam} />
-      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onBrowse={() => setPage('available')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
+      : <StudentDashboard token={token} user={user} onBrowse={() => setPage('available')} onEnter={joinedExam} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} onProfileUpdated={updateEducation} />;
   } else if (page === 'available' && !isTeacher) {
-    content = <AvailableExamsPage token={token} onEnter={joinedExam} onJoinCode={() => setPage('join')} />;
+    content = <AvailableExamsPage token={token} onEnter={joinedExam} />;
   } else if (page === 'exams') {
     content = <ExamsPage token={token} onOpenExam={openExam} onCreate={() => setPage('create')} />;
   } else if (page === 'create') {
@@ -341,12 +349,12 @@ export default function App() {
     content = <EssaysPage token={token} onOpenEssayReview={openEssayReview} onOpenResults={openResults} />;
   } else if (page === 'requests' && isTeacher) {
     content = <TeacherRequestsPage token={token} />;
+  } else if (page === 'students' && isTeacher) {
+    content = <TeacherStudentsPage token={token} />;
   } else if (page === 'teachers' && !isTeacher) {
     content = <TeachersPage token={token} />;
   } else if (page === 'audit') {
     content = <AuditPage token={token} />;
-  } else if (page === 'join') {
-    content = <JoinExamPage token={token} onJoined={joinedExam} onBack={() => setPage('dashboard')} />;
   } else if (page === 'review' && reviewId) {
     content = <ReviewDetailPage token={token} user={user} submissionId={reviewId} onBack={() => setPage(reviewBack)} onOpenEssayReview={openEssayReview} />;
   } else if (page === 'essay-review' && reviewId) {
@@ -354,7 +362,7 @@ export default function App() {
   } else {
     content = isTeacher
       ? <TeacherDashboard token={token} user={user} onNavigate={navigate} onCreate={() => setPage('create')} onOpenExam={openExam} />
-      : <StudentDashboard token={token} user={user} onJoin={() => setPage('join')} onBrowse={() => setPage('available')} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} />;
+      : <StudentDashboard token={token} user={user} onBrowse={() => setPage('available')} onEnter={joinedExam} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} onProfileUpdated={updateEducation} />;
   }
 
   return (

@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import {
   apiJson,
   createExam,
-  enterCode,
+  enrollStudent,
+  enterExam,
   getPaper,
   getSubmissionReview,
   openAppNav,
@@ -24,6 +25,7 @@ test('teacher grades an essay and student sees the final score and feedback', as
   const feedback = `ملاحظة المدرس ${suffix}`;
   const teacher = await registerAndLogin(request, 'Teacher', 'مدرس مقال');
   const student = await registerAndLogin(request, 'Student', 'طالب مقال');
+  await enrollStudent(request, teacher, student);
   const exam = await createExam(request, teacher.token, {
     questions: [
       {
@@ -42,9 +44,8 @@ test('teacher grades an essay and student sees the final score and feedback', as
       },
     ],
   });
-  const code = student.studentCode;
   await openExam(request, teacher.token, exam.id);
-  await enterCode(request, student.token, code);
+  await enterExam(request, student.token, exam.id);
   const started = await startExam(request, student.token, exam.id);
   const paper = await getPaper(request, student.token, exam.id);
   const answers = paper.questions.map((question) => ({
@@ -53,7 +54,8 @@ test('teacher grades an essay and student sees the final score and feedback', as
   }));
   const submitted = await submitExam(request, student.token, started.id, answers);
   expect(submitted.status).toBe('NeedsReview');
-  expect(Number(submitted.score)).toBe(1);
+  expect(submitted.resultsAvailable).toBe(false);
+  expect(submitted.score).toBeNull();
 
   await uiLogin(page, teacher);
   await expect(page.getByRole('heading', { name: 'مركز التحكم', exact: true }).first()).toBeVisible();
@@ -74,6 +76,21 @@ test('teacher grades an essay and student sees the final score and feedback', as
   expect(Number(graded.score)).toBe(3);
   expect(Number(graded.maxScore)).toBe(3);
   expect(graded.answers.find((answer) => answer.type === 'Essay').teacherFeedback).toBe(feedback);
+
+  await apiJson(request, 'PUT', `/api/exams/${exam.id}/state`, teacher.token, { action: 'close' });
+
+  // Closing the exam is not publication: the graded score and answer key stay hidden
+  // until the teacher explicitly releases the results.
+  const pendingReview = await getSubmissionReview(request, student.token, started.id);
+  expect(pendingReview.resultsAvailable).toBe(false);
+  expect(pendingReview.score).toBeNull();
+  expect(pendingReview.answers.find((answer) => answer.type === 'Essay').teacherFeedback).toBeNull();
+
+  await apiJson(request, 'POST', `/api/exams/${exam.id}/results/publish`, teacher.token);
+
+  const releasedReview = await getSubmissionReview(request, student.token, started.id);
+  expect(releasedReview.resultsAvailable).toBe(true);
+  expect(Number(releasedReview.score)).toBe(3);
 
   const studentContext = await browser.newContext({
     baseURL: new URL(page.url()).origin,

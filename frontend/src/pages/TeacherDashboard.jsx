@@ -146,7 +146,7 @@ export default function TeacherDashboard({ token, user, onNavigate, onCreate, on
                 <Badge tone="primary">خطوة أولى</Badge>
               </div>
               <h3 className="mt-4 font-display text-[15px] font-semibold text-ink">ابنِ امتحانك القادم</h3>
-              <p className="mt-1 text-[12.5px] leading-6 text-muted">أضف الأسئلة، حدّد المدة، ثم انشره وافتح الجلسة — الطلاب يحضرون بأكوادهم الشخصية.</p>
+              <p className="mt-1 text-[12.5px] leading-6 text-muted">أضف الأسئلة، حدّد المرحلة والصف والمدة، ثم انشره وافتح الجلسة — الطلاب المؤهلون يدخلون مباشرة.</p>
               <Button size="sm" className="mt-4 w-full" icon={Plus} onClick={onCreate}>إنشاء امتحان</Button>
             </div>
           </Card>
@@ -191,7 +191,7 @@ export default function TeacherDashboard({ token, user, onNavigate, onCreate, on
         {loading ? (
           <div className="grid gap-2 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
         ) : recent.length === 0 ? (
-          <EmptyState icon={FileText} title="لم تنشئ أي امتحان بعد" description="ابدأ بامتحان قصير لتجربة غرفة الانتظار والحضور بأكواد الطلاب الشخصية." action={<Button size="sm" icon={Plus} onClick={onCreate}>إنشاء أول امتحان</Button>} />
+          <EmptyState icon={FileText} title="لم تنشئ أي امتحان بعد" description="ابدأ بامتحان قصير وحدّد مرحلته وصفه لتجربة غرفة الانتظار والدخول المباشر للطلاب المؤهلين." action={<Button size="sm" icon={Plus} onClick={onCreate}>إنشاء أول امتحان</Button>} />
         ) : (
           <>
             <div className="grid gap-2.5 p-3 md:hidden">

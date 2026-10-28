@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Clock3, GraduationCap, RefreshCw, Send, CheckCircle2, XCircle } from 'lucide-react';
+import { Clock3, GraduationCap, RefreshCw, Send, CheckCircle2, XCircle, Unlink } from 'lucide-react';
 import { Alert, Avatar, Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { request } from '../lib/api';
 import { formatNumber } from '../lib/format';
@@ -8,6 +8,7 @@ const statusMap = {
   Pending: { label: 'قيد المراجعة', tone: 'warning', icon: Clock3 },
   Accepted: { label: 'مقبول', tone: 'emerald', icon: CheckCircle2 },
   Rejected: { label: 'مرفوض', tone: 'danger', icon: XCircle },
+  Unlinked: { label: 'تم فك الارتباط', tone: 'neutral', icon: Unlink },
 };
 
 export default function TeachersPage({ token }) {
@@ -73,7 +74,7 @@ export default function TeachersPage({ token }) {
             const status = teacher.requestStatus ? statusMap[teacher.requestStatus] : null;
             const StatusIcon = status?.icon;
             return (
-              <Card key={teacher.id} className="flex flex-col p-4">
+              <Card key={teacher.id} className="flex flex-col p-4" data-testid={`teacher-card-${teacher.id}`}>
                 <div className="flex items-center gap-3">
                   <Avatar name={teacher.fullName} />
                   <div className="min-w-0 flex-1">
@@ -85,8 +86,10 @@ export default function TeachersPage({ token }) {
                   {status ? (
                     <Badge tone={status.tone}><StatusIcon size={11} className="me-1" />{status.label}</Badge>
                   ) : <span className="text-[11px] text-subtle">لم تُرسل طلباً بعد</span>}
-                  {!status ? (
-                    <Button size="xs" icon={Send} loading={busyId === teacher.id} onClick={() => requestTeacher(teacher)}>طلب التسجيل</Button>
+                  {!status || teacher.requestStatus === 'Unlinked' ? (
+                    <Button size="xs" icon={Send} loading={busyId === teacher.id} onClick={() => requestTeacher(teacher)}>
+                      {teacher.requestStatus === 'Unlinked' ? 'طلب التسجيل مجدداً' : 'طلب التسجيل'}
+                    </Button>
                   ) : teacher.requestStatus === 'Rejected' ? (
                     <span className="text-[10.5px] text-subtle">تواصل مع المدرس</span>
                   ) : null}

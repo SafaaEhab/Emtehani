@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock3,
   Filter,
-  KeyRound,
   ListChecks,
   Radio,
   RefreshCw,
@@ -61,7 +60,7 @@ function Info({ icon: Icon, label, value, className = '' }) {
   );
 }
 
-export default function AvailableExamsPage({ token, onEnter, onJoinCode }) {
+export default function AvailableExamsPage({ token, onEnter }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,10 +137,7 @@ export default function AvailableExamsPage({ token, onEnter, onJoinCode }) {
         title="الامتحانات المتاحة"
         description="كل الامتحانات المنشورة من المدرسين في مكان واحد. اختر امتحاناً وسننقلك إلى غرفة الانتظار أو نستكمل محاولتك الجارية."
         action={
-          <>
-            <Button variant="secondary" size="sm" icon={KeyRound} onClick={onJoinCode}>دخول بكود</Button>
-            <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={() => load(true)}>تحديث</Button>
-          </>
+          <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={() => load(true)}>تحديث</Button>
         }
       />
 
@@ -206,8 +202,7 @@ export default function AvailableExamsPage({ token, onEnter, onJoinCode }) {
           <EmptyState
             icon={BookOpen}
             title="لا توجد امتحانات متاحة الآن"
-            description="عندما ينشر أحد المدرسين امتحاناً جديداً سيظهر هنا تلقائياً. يمكنك أيضاً الدخول بكود الامتحان الذي أرسله لك المدرس."
-            action={<Button size="sm" icon={KeyRound} onClick={onJoinCode}>دخول بكود الامتحان</Button>}
+            description="عندما ينشر أحد مدرسيك امتحاناً مطابقاً لمرحلتك وصفك سيظهر هنا تلقائياً. تأكد من قبول طلب التسجيل لدى المدرس ومن اكتمال بياناتك الدراسية."
           />
         </Card>
       ) : filtered.length === 0 ? (

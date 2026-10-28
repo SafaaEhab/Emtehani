@@ -9,6 +9,9 @@ const connection = process.env.E2E_DATABASE_CONNECTION
 
 export default defineConfig({
   testDir: './e2e',
+  // This audit targets already-running services on fixed ports (5000/5173) and is
+  // executed through playwright.qa.config.js instead of the managed E2E harness.
+  testIgnore: ['**/qa-running-audit.spec.js'],
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),

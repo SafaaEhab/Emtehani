@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Alert, Button, Field, Input, Logo, Segmented, Select } from '../components/ui';
 import { request } from '../lib/api';
+import { EDUCATION_STAGES, gradesForStage, isValidEducation } from '../lib/education';
 
 function AuthVisual() {
   return (
@@ -69,7 +70,7 @@ function AuthVisual() {
       <div className="relative mt-auto pt-16">
         <div className="flex items-center gap-2 text-[9px] text-white/35">
           <ShieldCheck size={12} className="text-emerald" />
-          جلسات مشفّرة، وكل كود مرتبط بحساب طالب واحد.
+          جلسات مشفّرة، وكل محاولة مرتبطة بحساب طالب واحد.
         </div>
       </div>
     </div>
@@ -84,7 +85,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   const [error, setError] = useState('');
   const [resendBusy, setResendBusy] = useState(false);
   const [localNotice, setLocalNotice] = useState('');
-  const [form, setForm] = useState({ fullName: '', email: '', password: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', stage: '', grade: '' });
   const [accepted, setAccepted] = useState(false);
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -102,6 +103,11 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
 
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
+  }
+
+  function updateStage(event) {
+    const stage = event.target.value;
+    setForm((current) => ({ ...current, stage, grade: '' }));
   }
 
   function switchMode(next) {
@@ -156,6 +162,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
       return;
     }
     if (mode === 'register' && form.fullName.trim().length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
+    if (mode === 'register' && role === 'Student' && !isValidEducation(form.stage, form.grade)) return setError('اختر المرحلة التعليمية والصف الدراسي المناسب له.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
     if (form.password.length < 8 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
     if (mode === 'register' && !accepted) return setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية.');
@@ -166,12 +173,12 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
         email: form.email.trim(),
         password: form.password,
         role,
+        stage: role === 'Student' ? form.stage : null,
+        grade: role === 'Student' ? form.grade : null,
       });
       if (result?.registered) {
         setMode('login');
-        setLocalNotice(result.studentCode
-          ? `${result.message || 'تم إنشاء الحساب.'} كودك الشخصي للامتحانات: ${result.studentCode} — احفظه في مكان آمن، وستجده دائماً في مساحتك الرئيسية بعد تسجيل الدخول.`
-          : (result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول.'));
+        setLocalNotice(result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول.');
       }
     } catch (err) {
       setError(err.message || 'تعذر إكمال العملية. حاول مرة أخرى.');
@@ -248,7 +255,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                     </div>
                   </Field>
 
-                  <Field label="نوع الحساب" id="auth-role" hint={role === 'Teacher' ? 'ستحصل على لوحة تحكم كاملة لإنشاء الامتحانات ومتابعة الطلاب.' : 'ستدخل الامتحانات بكود مخصص، وتتابع نتائجك من حسابك.'}>
+                  <Field label="نوع الحساب" id="auth-role" hint={role === 'Teacher' ? 'ستحصل على لوحة تحكم كاملة لإنشاء الامتحانات ومتابعة الطلاب.' : 'ستظهر لك امتحانات مدرسيك المطابقة لمرحلتك وصفك مباشرة بعد تسجيل الدخول.'}>
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { value: 'Student', label: 'طالب', icon: GraduationCap, detail: 'أداء الامتحانات' },
@@ -261,6 +268,23 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                       ))}
                     </div>
                   </Field>
+
+                  {role === 'Student' ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="المرحلة التعليمية" id="auth-stage" hint="اختر مرحلتك الدراسية الحالية.">
+                        <Select id="auth-stage" value={form.stage} onChange={updateStage}>
+                          <option value="">اختر المرحلة</option>
+                          {EDUCATION_STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+                        </Select>
+                      </Field>
+                      <Field label="الصف الدراسي" id="auth-grade" hint="تظهر الامتحانات المطابقة لصفك فقط.">
+                        <Select id="auth-grade" value={form.grade} onChange={update('grade')} disabled={!form.stage}>
+                          <option value="">{form.stage ? 'اختر الصف' : 'اختر المرحلة أولاً'}</option>
+                          {gradesForStage(form.stage).map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                        </Select>
+                      </Field>
+                    </div>
+                  ) : null}
 
                 </>
               ) : null}

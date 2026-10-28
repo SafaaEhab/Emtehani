@@ -28,7 +28,6 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
       points: 1,
     }],
   });
-  const code = student.studentCode;
 
   await uiLogin(page, teacher);
   await expect(page.getByRole('heading', { name: 'مركز التحكم', exact: true }).first()).toBeVisible();
@@ -36,7 +35,6 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   const examRow = page.getByRole('row').filter({ hasText: exam.title });
   await examRow.getByRole('button', { name: 'إدارة الامتحان', exact: true }).click();
   await expect(page.getByRole('button', { name: 'فتح الجلسة', exact: true }).filter({ visible: true }).first()).toBeVisible();
-  // The participant code becomes visible after the student joins; the export below verifies it.
 
   const studentContext = await browser.newContext({
     baseURL: new URL(page.url()).origin,
@@ -46,9 +44,8 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   const studentPage = await studentContext.newPage();
   await uiLogin(studentPage, student);
   await expect(studentPage.locator('h1').filter({ hasText: 'أهلاً' })).toBeVisible();
-  await openAppNav(studentPage, 'دخول امتحان');
-  await studentPage.locator('#exam-code').fill(code);
-  await studentPage.getByRole('button', { name: 'دخول غرفة الانتظار', exact: true }).click();
+  await openAppNav(studentPage, 'الامتحانات المتاحة');
+  await studentPage.getByRole('button', { name: 'دخول الامتحان', exact: true }).click();
   await expect(studentPage.getByText('يرجى انتظار بدء الامتحان من قبل المعلم.', { exact: true })).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole('button', { name: 'فتح الجلسة', exact: true }).filter({ visible: true }).first().click();
@@ -63,9 +60,8 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   studentPage.on('dialog', (dialog) => dialog.accept());
   await studentPage.reload();
   await expect(studentPage.locator('h1').filter({ hasText: 'أهلاً' })).toBeVisible();
-  await openAppNav(studentPage, 'دخول امتحان');
-  await studentPage.locator('#exam-code').fill(code);
-  await studentPage.getByRole('button', { name: 'دخول غرفة الانتظار', exact: true }).click();
+  await openAppNav(studentPage, 'الامتحانات المتاحة');
+  await studentPage.getByRole('button', { name: 'استكمال المحاولة', exact: true }).click();
   const resumedCard = studentPage.locator('[id^="question-"]').filter({ hasText: questionText });
   await expect(resumedCard).toBeVisible({ timeout: 20_000 });
   await expect(resumedCard.getByRole('radio').first()).toBeChecked();
@@ -73,6 +69,28 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
   await studentPage.getByRole('button', { name: 'تسليم الامتحان', exact: true }).filter({ visible: true }).first().click();
   await studentPage.getByRole('button', { name: 'تسليم نهائي', exact: true }).click();
   await expect(studentPage.getByText('نتيجتك', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(studentPage.getByText('بانتظار اعتماد النتائج').first()).toBeVisible();
+
+  await apiJson(request, 'PUT', `/api/exams/${exam.id}/state`, teacher.token, { action: 'close' });
+
+  // Closing the exam must not reveal results before the teacher publishes them.
+  await studentPage.reload();
+  await expect(studentPage.locator('h1').filter({ hasText: 'أهلاً' })).toBeVisible();
+  await openAppNav(studentPage, 'نتائجي');
+  const pendingRow = studentPage.getByRole('row').filter({ hasText: exam.title });
+  await expect(pendingRow).toContainText('بانتظار اعتماد النتائج');
+
+  await expect(page.getByRole('button', { name: 'نشر النتائج للطلاب', exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'نشر النتائج للطلاب', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'نعم، انشر النتائج', exact: true }).click();
+  await expect(page.getByText(/تم نشر النتائج/).first()).toBeVisible();
+
+  await studentPage.reload();
+  await expect(studentPage.locator('h1').filter({ hasText: 'أهلاً' })).toBeVisible();
+  await openAppNav(studentPage, 'نتائجي');
+  const resultRow = studentPage.getByRole('row').filter({ hasText: exam.title });
+  await expect(resultRow).toContainText('1 / 1');
+  await resultRow.getByRole('button', { name: 'مراجعة', exact: true }).click();
   await expect(studentPage.getByText(/1\s*\/\s*1/).first()).toBeVisible();
 
   const results = await apiJson(request, 'GET', '/api/results/mine', student.token);
@@ -100,7 +118,8 @@ test('teacher and student complete an exam with autosave, secure CSV, and idempo
 
   const codesCsv = await apiResponse(request, 'GET', `/api/exams/${exam.id}/participants/export`, teacher.token);
   expect(codesCsv.status()).toBe(200);
-  expect(await codesCsv.text()).toContain(code);
+  const roster = await apiJson(request, 'GET', `/api/exams/${exam.id}/participants`, teacher.token);
+  expect(await codesCsv.text()).toContain(roster.items[0].code);
 
   const studentCsv = await apiResponse(request, 'GET', `/api/exams/${exam.id}/export`, student.token);
   expect(studentCsv.status()).toBe(403);

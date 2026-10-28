@@ -94,6 +94,43 @@ public sealed class PostgresSchemaTests
     }
 
     [PostgresFact]
+    public async Task ResultsPublicationColumn_BackfillsOnlyLegacyFinishedExams()
+    {
+        await using var database = await PostgresTestDatabase.CreateAsync();
+        await using var db = new AppDbContext(database.Options());
+        await db.Database.EnsureCreatedAsync();
+
+        var legacyFinished = new Exam { Title = "legacy-finished", JoinCode = $"legacy-{Guid.NewGuid():N}", IsPublished = true, Status = "Finished" };
+        var activeExam = new Exam { Title = "still-running", JoinCode = $"active-{Guid.NewGuid():N}", IsPublished = true, Status = "Active" };
+        db.Exams.AddRange(legacyFinished, activeExam);
+        await db.SaveChangesAsync();
+
+        // Simulate a database created before explicit results publication existed.
+        await db.Database.ExecuteSqlRawAsync("""ALTER TABLE "Exams" DROP COLUMN "ResultsPublishedAtUtc";""");
+        db.ChangeTracker.Clear();
+
+        await ExamWorkflowSchema.EnsureAsync(db);
+        await ExamWorkflowSchema.EnsureAsync(db);
+        db.ChangeTracker.Clear();
+
+        Assert.True(await ColumnExistsAsync(database.ConnectionString, "Exams", "ResultsPublishedAtUtc"));
+        Assert.NotNull(await db.Exams.Where(x => x.Id == legacyFinished.Id)
+            .Select(x => x.ResultsPublishedAtUtc).SingleAsync());
+        Assert.Null(await db.Exams.Where(x => x.Id == activeExam.Id)
+            .Select(x => x.ResultsPublishedAtUtc).SingleAsync());
+
+        // Future finished exams must stay unpublished until the teacher explicitly publishes.
+        var futureFinished = new Exam { Title = "future-finished", JoinCode = $"future-{Guid.NewGuid():N}", IsPublished = true, Status = "Finished" };
+        db.Exams.Add(futureFinished);
+        await db.SaveChangesAsync();
+        await ExamWorkflowSchema.EnsureAsync(db);
+        db.ChangeTracker.Clear();
+
+        Assert.Null(await db.Exams.Where(x => x.Id == futureFinished.Id)
+            .Select(x => x.ResultsPublishedAtUtc).SingleAsync());
+    }
+
+    [PostgresFact]
     public async Task WorkflowBootstrap_DeduplicatesAndEnforcesOneInProgressAttemptPerStudent()
     {
         await using var database = await PostgresTestDatabase.CreateAsync();
@@ -145,6 +182,71 @@ public sealed class PostgresSchemaTests
         });
         var exception = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         Assert.Equal("23505", Assert.IsType<PostgresException>(exception.InnerException).SqlState);
+    }
+
+    [PostgresFact]
+    public async Task StudentManagementSchema_AddsRelationshipStateAndExamBanTableIdempotently()
+    {
+        await using var database = await PostgresTestDatabase.CreateAsync();
+        await using var db = new AppDbContext(database.Options());
+        await db.Database.EnsureCreatedAsync();
+
+        var teacher = new AppUser { FullName = "Teacher", Email = $"ban-teacher-{Guid.NewGuid():N}@example.test", Role = "Teacher", PasswordHash = "x" };
+        var student = new AppUser { FullName = "Student", Email = $"ban-student-{Guid.NewGuid():N}@example.test", Role = "Student", PasswordHash = "x" };
+        var exam = new Exam { TeacherId = teacher.Id, Title = "Ban schema verification", IsPublished = true, Status = "Waiting" };
+        db.Users.AddRange(teacher, student);
+        db.Exams.Add(exam);
+        db.TeacherStudentRequests.Add(new TeacherStudentRequest
+        {
+            TeacherId = teacher.Id,
+            StudentId = student.Id,
+            Status = "Accepted",
+            DecidedAtUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var relationshipId = await db.TeacherStudentRequests
+            .Where(x => x.TeacherId == teacher.Id && x.StudentId == student.Id)
+            .Select(x => x.Id)
+            .SingleAsync();
+
+        // Simulate a database created before student management and per-exam bans existed.
+        await db.Database.ExecuteSqlRawAsync("""
+            DROP TABLE IF EXISTS "TeacherStudentExamBans";
+            ALTER TABLE "TeacherStudentRequests" DROP COLUMN IF EXISTS "UnlinkedAtUtc";
+            ALTER TABLE "TeacherStudentRequests" DROP COLUMN IF EXISTS "SuspendedAtUtc";
+            """);
+        db.ChangeTracker.Clear();
+
+        await ExamWorkflowSchema.EnsureAsync(db);
+        await ExamWorkflowSchema.EnsureAsync(db);
+        db.ChangeTracker.Clear();
+
+        Assert.True(await ColumnExistsAsync(database.ConnectionString, "TeacherStudentRequests", "UnlinkedAtUtc"));
+        Assert.True(await ColumnExistsAsync(database.ConnectionString, "TeacherStudentRequests", "SuspendedAtUtc"));
+        Assert.True(await TableExistsAsync(database.ConnectionString, "TeacherStudentExamBans"));
+        Assert.True(await ColumnExistsAsync(database.ConnectionString, "TeacherStudentExamBans", "ExamId"));
+
+        var preserved = await db.TeacherStudentRequests.SingleAsync(x => x.Id == relationshipId);
+        Assert.Equal("Accepted", preserved.Status);
+        Assert.Null(preserved.UnlinkedAtUtc);
+        Assert.Null(preserved.SuspendedAtUtc);
+
+        db.TeacherStudentExamBans.Add(new TeacherStudentExamBan
+        {
+            TeacherId = teacher.Id,
+            StudentId = student.Id,
+            ExamId = exam.Id
+        });
+        await db.SaveChangesAsync();
+
+        db.TeacherStudentExamBans.Add(new TeacherStudentExamBan
+        {
+            TeacherId = teacher.Id,
+            StudentId = student.Id,
+            ExamId = exam.Id
+        });
+        var duplicate = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        Assert.Equal("23505", Assert.IsType<PostgresException>(duplicate.InnerException).SqlState);
     }
 
     private static async Task<bool> ColumnExistsAsync(string connectionString, string table, string column)

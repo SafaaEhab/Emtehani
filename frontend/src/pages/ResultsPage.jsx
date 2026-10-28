@@ -5,6 +5,7 @@ import {
   Award,
   BarChart3,
   CheckCircle2,
+  Clock3,
   Download,
   Eye,
   FileText,
@@ -37,7 +38,14 @@ import {
 import { request } from '../lib/api';
 import { downloadBlob, formatDate, formatNumber, formatTimer, percent, scoreText } from '../lib/format';
 
-function ScoreCell({ score, maxScore, status }) {
+function ScoreCell({ score, maxScore, status, resultsAvailable = true }) {
+  if (!resultsAvailable) {
+    return (
+      <div className="min-w-[90px]">
+        <span className="inline-flex items-center gap-1.5 rounded-[8px] bg-warning-soft px-2 py-1 text-[10.5px] font-bold text-warning"><Clock3 size={11} />بانتظار اعتماد النتائج</span>
+      </div>
+    );
+  }
   const value = percent(score, maxScore);
   return (
     <div className="min-w-[90px]">
@@ -81,7 +89,7 @@ function StudentResults({ token, onOpenReview }) {
       <PageHeader
         eyebrow="متابعة الأداء"
         title="نتائجي"
-        description="كل محاولة مسلّمة تظهر هنا. افتح أي نتيجة لمراجعة إجاباتك والملاحظات."
+        description="كل محاولة مسلّمة تظهر هنا. تُعرض الدرجات والإجابات الصحيحة بعد انتهاء الامتحان واعتماد النتائج."
         action={<Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={() => load(true)}>تحديث</Button>}
       />
 
@@ -89,9 +97,9 @@ function StudentResults({ token, onOpenReview }) {
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={FileText} label="المحاولات" value={formatNumber(items.length)} note="محاولات مسلّمة" loading={loading} />
-        <StatCard icon={Target} label="متوسط النتائج" value={`${formatNumber(average)}%`} note="من المحاولات المصححة" tone="blue" loading={loading} />
-        <StatCard icon={Award} label="أفضل نتيجة" value={`${formatNumber(best)}%`} note="أعلى نسبة حققتها" tone="emerald" loading={loading} />
-        <StatCard icon={TrendingUp} label="بحاجة لمراجعة" value={formatNumber(items.filter((item) => item.status === 'NeedsReview').length)} note="بانتظار تصحيح المدرس" tone="warning" loading={loading} />
+        <StatCard icon={Target} label="متوسط النتائج" value={`${formatNumber(average)}%`} note="من النتائج المعتمدة" tone="blue" loading={loading} />
+        <StatCard icon={Award} label="أفضل نتيجة" value={`${formatNumber(best)}%`} note="أعلى نسبة معتمدة" tone="emerald" loading={loading} />
+        <StatCard icon={Clock3} label="بانتظار الاعتماد" value={formatNumber(items.filter((item) => item.resultsAvailable === false).length)} note="تظهر بعد انتهاء الامتحان" tone="warning" loading={loading} />
       </div>
 
       <Card className="overflow-hidden">
@@ -111,7 +119,7 @@ function StudentResults({ token, onOpenReview }) {
                     <tr key={item.id} className="border-b border-line/70 last:border-0 hover:bg-surface-soft/50">
                       <td className="px-5 py-3.5"><p className="max-w-[250px] truncate text-[13px] font-bold text-ink">{item.examTitle}</p><p className="mt-0.5 text-[10.5px] text-subtle">محاولة {formatNumber(item.attemptNumber)}</p></td>
                       <td className="px-3 py-3.5 text-[11.5px] text-muted">{item.teacherName || '—'}</td>
-                      <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></td>
+                      <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} resultsAvailable={item.resultsAvailable !== false} /></td>
                       <td className="px-3 py-3.5"><StatusChip status={item.status} /></td>
                       <td className="px-3 py-3.5 text-[10.5px] text-muted">{formatDate(item.submittedAtUtc)}</td>
                       <td className="px-5 py-3.5 text-left"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button></td>
@@ -124,7 +132,7 @@ function StudentResults({ token, onOpenReview }) {
               {items.map((item) => (
                 <div key={item.id} className="rounded-[14px] border border-line bg-surface-soft/50 p-3.5">
                   <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-[13px] font-bold text-ink">{item.examTitle}</p><p className="mt-1 text-[10.5px] text-subtle">{item.teacherName || '—'} · محاولة {formatNumber(item.attemptNumber)}</p></div><StatusChip status={item.status} /></div>
-                  <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></div>
+                  <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} resultsAvailable={item.resultsAvailable !== false} /></div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة الإجابات</Button></div>
                 </div>
               ))}
@@ -296,7 +304,7 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
                       {filtered.map((item) => (
                         <tr key={item.id} className="border-b border-line/70 last:border-0 hover:bg-surface-soft/50">
                           <td className="px-5 py-3.5"><div className="flex items-center gap-2.5"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.student}</p><p className="max-w-[190px] truncate text-[10.5px] text-subtle" dir="ltr">{item.email}</p></div></div></td>
-                          <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></td>
+                          <td className="px-3 py-3.5"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} resultsAvailable={item.resultsAvailable !== false} /></td>
                           <td className="px-3 py-3.5"><StatusChip status={item.status} /></td>
                           <td className="px-3 py-3.5 text-[11px] text-muted">{formatDate(item.submittedAtUtc)}</td>
                           <td className="px-3 py-3.5">{item.focusLossDetected ? <Badge tone="warning">خروج مرصود</Badge> : <span className="text-[11px] text-subtle">—</span>}</td>
@@ -310,7 +318,7 @@ export default function ResultsPage({ token, user, selectedExam, onOpenReview, o
                   {filtered.map((item) => (
                     <div key={item.id} className="rounded-[13px] border border-line bg-surface-soft/50 p-3.5">
                       <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><Avatar name={item.student} size="sm" /><div className="min-w-0"><p className="truncate text-[12.5px] font-bold text-ink">{item.student}</p><p className="max-w-[150px] truncate text-[10px] text-subtle" dir="ltr">{item.email}</p></div></div><StatusChip status={item.status} /></div>
-                      <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} /></div>
+                      <div className="mt-3"><ScoreCell score={item.score} maxScore={item.maxScore} status={item.status} resultsAvailable={item.resultsAvailable !== false} /></div>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5"><span className="text-[10.5px] text-subtle">{formatDate(item.submittedAtUtc)}</span><div className="flex gap-1"><Button variant="ghost" size="xs" icon={Eye} onClick={() => onOpenReview(item.id)}>مراجعة</Button>{item.isExceptionAttempt ? <Button variant="ghost" size="xs" icon={CheckCircle2} disabled title="تم منح محاولة إضافية لهذه المحاولة بالفعل">تم منح محاولة</Button> : <Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => setGrantTarget(item)}>محاولة</Button>}</div></div>
                     </div>
                   ))}

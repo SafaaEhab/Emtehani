@@ -180,6 +180,9 @@ public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFac
 
 public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
+    private const string DefaultStage = "ثانوي";
+    private const string DefaultGrade = "الصف الثالث الثانوي";
+
     private static string Email(string prefix) => $"{prefix}-{Guid.NewGuid():N}@example.test";
 
     private static async Task<JsonNode> ReadJson(HttpResponseMessage response)
@@ -187,11 +190,20 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
 
     private static Guid GuidValue(JsonNode? node) => Guid.Parse(node!.GetValue<string>());
 
-    private async Task<(HttpClient Client, JsonNode Auth)> RegisterAndLogin(string email, string role, string name)
+    private async Task<(HttpClient Client, JsonNode Auth)> RegisterAndLogin(string email, string role, string name, string? stage = null, string? grade = null)
     {
         var client = factory.CreateClient();
-        var register = await client.PostAsJsonAsync("/api/auth/register", new { fullName = name, email, password = "Passw0rd!", role });
-        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+        var isStudent = role == "Student";
+        var register = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = name,
+            email,
+            password = "Passw0rd!",
+            role,
+            stage = isStudent ? stage ?? DefaultStage : null,
+            grade = isStudent ? grade ?? DefaultGrade : null
+        });
+        Assert.True(register.StatusCode == HttpStatusCode.OK, $"{register.StatusCode}: {await register.Content.ReadAsStringAsync()}");
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await ReadJson(login);
@@ -199,7 +211,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         return (client, auth);
     }
 
-    private async Task<Guid> CreatePublishedExam(HttpClient teacher)
+    private async Task<Guid> CreatePublishedExam(HttpClient teacher, string stage = DefaultStage, string grade = DefaultGrade)
     {
         var create = await teacher.PostAsJsonAsync("/api/exams", new
         {
@@ -208,6 +220,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             durationMinutes = 30,
             maxAttempts = 1,
             allowResumeAfterFocusLoss = true,
+            stage,
+            grade,
             questions = new object[]
             {
                 new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 2 },
@@ -230,7 +244,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.OK, open.StatusCode);
     }
 
-    private async Task<Guid> CreateCustomExam(HttpClient teacher, string title, int maxAttempts = 1, bool publish = true)
+    private async Task<Guid> CreateCustomExam(HttpClient teacher, string title, int maxAttempts = 1, bool publish = true, string stage = DefaultStage, string grade = DefaultGrade)
     {
         var create = await teacher.PostAsJsonAsync("/api/exams", new
         {
@@ -239,6 +253,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             durationMinutes = 30,
             maxAttempts,
             allowResumeAfterFocusLoss = true,
+            stage,
+            grade,
             questions = new object[]
             {
                 new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 2 },
@@ -272,6 +288,13 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         }).ToArray();
         var submit = await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit", new { answers, focusLossDetected = false });
         Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+    }
+
+    private static async Task PublishResults(HttpClient teacher, Guid examId)
+    {
+        var response = await teacher.PostAsync($"/api/exams/{examId}/results/publish", null);
+        Assert.True(response.StatusCode == HttpStatusCode.OK,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
     }
 
     private static string StudentCode(JsonNode auth) => auth["studentCode"]!.GetValue<string>();
@@ -342,16 +365,41 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var submit = await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit", new { answers, focusLossDetected = false });
         Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
         var submitted = await ReadJson(submit);
-        Assert.Equal(3, submitted["score"]!.GetValue<double>());
-        Assert.Equal("Reviewed", submitted["status"]!.GetValue<string>());
+        Assert.False(submitted["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(submitted["score"] is null);
+        Assert.True(submitted["maxScore"] is null);
 
         var again = await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit", new { answers, focusLossDetected = false });
         Assert.Equal(HttpStatusCode.OK, again.StatusCode);
         Assert.Equal(submissionId, GuidValue((await ReadJson(again))["id"]));
 
+        var hiddenReview = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.False(hiddenReview!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenReview["score"] is null);
+        Assert.True(hiddenReview["maxScore"] is null);
+        Assert.All(hiddenReview["answers"]!.AsArray(), answer =>
+        {
+            Assert.True(answer!["correctAnswer"] is null);
+            Assert.True(answer["awardedPoints"] is null);
+            Assert.True(answer["teacherFeedback"] is null);
+        });
+
+        var close = await teacher.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" });
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+
+        var hiddenAfterClose = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.False(hiddenAfterClose!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenAfterClose["score"] is null);
+        Assert.True(hiddenAfterClose["answers"]![0]!["correctAnswer"] is null);
+
+        await PublishResults(teacher, examId);
+
         var review = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
         Assert.Equal(3, review!["score"]!.GetValue<double>());
         Assert.Equal("Reviewed", review["status"]!.GetValue<string>());
+        Assert.True(review["resultsAvailable"]!.GetValue<bool>());
+        Assert.Equal("4", review["answers"]![0]!["correctAnswer"]!.GetValue<string>());
+        Assert.Equal(2, review["answers"]![0]!["awardedPoints"]!.GetValue<double>());
     }
 
     [Fact]
@@ -451,9 +499,22 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.Conflict, lateSave.StatusCode);
 
         var review = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
-        Assert.Equal(3, review!["score"]!.GetValue<double>());
+        Assert.True(review!["score"] is null);
+        Assert.True(review["answers"]![0]!["correctAnswer"] is null);
         Assert.Equal("4", review["answers"]![0]!["studentAnswer"]!.GetValue<string>());
         Assert.Equal("صح", review["answers"]![1]!["studentAnswer"]!.GetValue<string>());
+
+        await teacher.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" });
+        var hiddenAfterClose = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.False(hiddenAfterClose!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenAfterClose["score"] is null);
+
+        await PublishResults(teacher, examId);
+
+        var released = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.Equal(3, released!["score"]!.GetValue<double>());
+        Assert.Equal("4", released["answers"]![0]!["correctAnswer"]!.GetValue<string>());
+        Assert.Equal("صح", released["answers"]![1]!["correctAnswer"]!.GetValue<string>());
     }
 
     [Fact]
@@ -520,6 +581,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             durationMinutes = 30,
             maxAttempts = 1,
             allowResumeAfterFocusLoss = true,
+            stage = DefaultStage,
+            grade = DefaultGrade,
             questions = new object[]
             {
                 new { text = "اشرح الفكرة", type = "Essay", options = Array.Empty<string>(), correctAnswer = (string?)null, points = 5 }
@@ -564,14 +627,140 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal("Reviewed", graded["status"]!.GetValue<string>());
         Assert.Equal(4, graded["score"]!.GetValue<double>());
 
+        var teacherReview = await teacher.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.Equal(4, teacherReview!["score"]!.GetValue<double>());
+        Assert.Equal(4, teacherReview["answers"]![0]!["awardedPoints"]!.GetValue<double>());
+        Assert.Equal("جيد", teacherReview["answers"]![0]!["teacherFeedback"]!.GetValue<string>());
+
         var gradeByQuestionId = await teacher.PutAsJsonAsync($"/api/submissions/{submissionId}/answers/{questionId}/grade",
             new { awardedPoints = 4, feedback = "خطأ" });
         Assert.Equal(HttpStatusCode.NotFound, gradeByQuestionId.StatusCode);
 
         var studentReview = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
-        Assert.Equal(4, studentReview!["score"]!.GetValue<double>());
-        Assert.Equal("Reviewed", studentReview["status"]!.GetValue<string>());
+        Assert.False(studentReview!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(studentReview["score"] is null);
+        Assert.True(studentReview["answers"]![0]!["awardedPoints"] is null);
+        Assert.True(studentReview["answers"]![0]!["teacherFeedback"] is null);
         Assert.Equal(answerId, GuidValue(studentReview["answers"]![0]!["id"]));
+
+        await teacher.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" });
+
+        var hiddenAfterClose = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.False(hiddenAfterClose!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenAfterClose["score"] is null);
+
+        await PublishResults(teacher, examId);
+
+        var releasedReview = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.True(releasedReview!["resultsAvailable"]!.GetValue<bool>());
+        Assert.Equal(4, releasedReview["score"]!.GetValue<double>());
+        Assert.Equal("Reviewed", releasedReview["status"]!.GetValue<string>());
+        Assert.Equal(4, releasedReview["answers"]![0]!["awardedPoints"]!.GetValue<double>());
+        Assert.Equal("جيد", releasedReview["answers"]![0]!["teacherFeedback"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ResultsPublication_RequiresFinishedExamAndCompleteGrading_AndKeepsTeacherOwnership()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("publish-teacher"), "Teacher", "مدرس نشر النتائج");
+        var (other, _) = await RegisterAndLogin(Email("publish-other"), "Teacher", "مدرس غير مالك");
+        var (student, _) = await RegisterAndLogin(Email("publish-student"), "Student", "طالب نشر النتائج");
+        await EnrollStudent(teacher, student);
+
+        var create = await teacher.PostAsJsonAsync("/api/exams", new
+        {
+            title = "امتحان نشر النتائج",
+            description = "وصف",
+            durationMinutes = 30,
+            maxAttempts = 1,
+            allowResumeAfterFocusLoss = true,
+            stage = DefaultStage,
+            grade = DefaultGrade,
+            questions = new object[]
+            {
+                new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 2 },
+                new { text = "اشرح الفكرة", type = "Essay", options = Array.Empty<string>(), correctAnswer = (string?)null, points = 3 }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var examId = GuidValue((await ReadJson(create))["id"]);
+        Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsync($"/api/exams/{examId}/publish", null)).StatusCode);
+        await OpenExam(teacher, examId);
+
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+        var submissionId = await StartAttempt(student, examId);
+        var paper = await student.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/paper");
+        var questions = paper!["questions"]!.AsArray();
+        var answers = questions.Select(question => new
+        {
+            questionId = GuidValue(question!["id"]),
+            answerText = question["type"]!.GetValue<string>() == "Essay" ? "إجابة مقالية" : "4"
+        }).ToArray();
+        var submit = await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit", new { answers, focusLossDetected = false });
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        var submitted = await ReadJson(submit);
+        Assert.Equal("NeedsReview", submitted["status"]!.GetValue<string>());
+        Assert.False(submitted["resultsAvailable"]!.GetValue<bool>());
+
+        // Results can only be published after the exam has actually ended.
+        var tooEarly = await teacher.PostAsync($"/api/exams/{examId}/results/publish", null);
+        Assert.Equal(HttpStatusCode.Conflict, tooEarly.StatusCode);
+
+        var close = await teacher.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" });
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+
+        // Closing the exam does not release results by itself.
+        var hiddenAfterClose = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.False(hiddenAfterClose!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenAfterClose["score"] is null);
+        Assert.True(hiddenAfterClose["answers"]!.AsArray().All(answer => answer!["correctAnswer"] is null));
+
+        // Ungraded essays block publication.
+        var blocked = await teacher.PostAsync($"/api/exams/{examId}/results/publish", null);
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Contains("المقالية", (await ReadJson(blocked))["message"]!.GetValue<string>());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsync($"/api/exams/{examId}/results/publish", null)).StatusCode);
+
+        var reviewRows = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/review");
+        var reviewRow = reviewRows!.AsArray().Single(row => GuidValue(row!["id"]) == submissionId)!;
+        var answerId = GuidValue(reviewRow["answers"]!.AsArray()
+            .Single(answer => answer!["type"]!.GetValue<string>() == "Essay")!["id"]);
+        var grade = await teacher.PutAsJsonAsync($"/api/submissions/{submissionId}/answers/{answerId}/grade",
+            new { awardedPoints = 3, feedback = "إجابة جيدة" });
+        Assert.Equal(HttpStatusCode.OK, grade.StatusCode);
+        Assert.Equal("Reviewed", (await ReadJson(grade))["status"]!.GetValue<string>());
+
+        var published = await teacher.PostAsync($"/api/exams/{examId}/results/publish", null);
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+        var publishedBody = await ReadJson(published);
+        Assert.False(publishedBody["alreadyPublished"]!.GetValue<bool>());
+        Assert.False(string.IsNullOrWhiteSpace(publishedBody["resultsPublishedAtUtc"]!.GetValue<string>()));
+
+        var released = await student.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.True(released!["resultsAvailable"]!.GetValue<bool>());
+        Assert.Equal(5, released["score"]!.GetValue<double>());
+        Assert.Equal(5, released["maxScore"]!.GetValue<double>());
+        Assert.Equal("إجابة جيدة", released["answers"]!.AsArray()
+            .Single(answer => answer!["type"]!.GetValue<string>() == "Essay")!["teacherFeedback"]!.GetValue<string>());
+        Assert.Equal("4", released["answers"]!.AsArray()
+            .Single(answer => answer!["type"]!.GetValue<string>() == "MultipleChoice")!["correctAnswer"]!.GetValue<string>());
+
+        var mine = await student.GetFromJsonAsync<JsonNode>("/api/results/mine");
+        var mineRow = mine!.AsArray().Single(row => GuidValue(row!["examId"]) == examId)!;
+        Assert.True(mineRow["resultsAvailable"]!.GetValue<bool>());
+        Assert.Equal(5, mineRow["score"]!.GetValue<double>());
+
+        // Republishing is idempotent and keeps the original publication timestamp.
+        var reissued = await teacher.PostAsync($"/api/exams/{examId}/results/publish", null);
+        Assert.Equal(HttpStatusCode.OK, reissued.StatusCode);
+        var reissuedBody = await ReadJson(reissued);
+        Assert.True(reissuedBody["alreadyPublished"]!.GetValue<bool>());
+        // SQLite loses DateTimeKind on round-trip, so compare the serialized instant ignoring
+        // the optional UTC suffix instead of parsing it with the machine's local time zone.
+        Assert.Equal(
+            publishedBody["resultsPublishedAtUtc"]!.GetValue<string>().TrimEnd('Z'),
+            reissuedBody["resultsPublishedAtUtc"]!.GetValue<string>().TrimEnd('Z'));
     }
 
     [Fact]
@@ -604,14 +793,24 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.OK, close.StatusCode);
         Assert.Equal("Finished", (await ReadJson(close))["status"]!.GetValue<string>());
 
+        var pendingResults = await student.GetFromJsonAsync<JsonNode>("/api/results/mine");
+        var pendingResult = pendingResults!.AsArray().Single(x => GuidValue(x!["examId"]) == examId);
+        Assert.Equal("Reviewed", pendingResult!["status"]!.GetValue<string>());
+        Assert.False(pendingResult["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(pendingResult["score"] is null);
+        Assert.True(pendingResult["maxScore"] is null);
+
+        await PublishResults(teacher, examId);
+
         var results = await student.GetFromJsonAsync<JsonNode>("/api/results/mine");
         var result = results!.AsArray().Single(x => GuidValue(x!["examId"]) == examId);
         Assert.Equal("Reviewed", result!["status"]!.GetValue<string>());
+        Assert.True(result["resultsAvailable"]!.GetValue<bool>());
         Assert.Equal(3, result["score"]!.GetValue<double>());
     }
 
     [Fact]
-    public async Task Student_CannotStartWithoutEnteringPersonalCode()
+    public async Task Student_CannotStartWithoutBeingEnrolledByTeacher()
     {
         var teacherEmail = Email("teacher");
         var studentEmail = Email("student");
@@ -719,7 +918,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         using var freshFactory = new ApiFactory();
         var client = freshFactory.CreateClient();
         var email = Email("idle-student");
-        var register = await client.PostAsJsonAsync("/api/auth/register", new { fullName = "طالب بدون امتحان", email, password = "Passw0rd!", role = "Student" });
+        var register = await client.PostAsJsonAsync("/api/auth/register", new { fullName = "طالب بدون امتحان", email, password = "Passw0rd!", role = "Student", stage = DefaultStage, grade = DefaultGrade });
         Assert.Equal(HttpStatusCode.OK, register.StatusCode);
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
@@ -902,7 +1101,9 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
                 fullName = $"طالب ت撞{i}",
                 email,
                 password = "Passw0rd!",
-                role = "Student"
+                role = "Student",
+                stage = DefaultStage,
+                grade = DefaultGrade
             });
             Assert.Equal(HttpStatusCode.OK, register.StatusCode);
             var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
@@ -1026,6 +1227,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
                 allowResumeAfterFocusLoss = true,
                 availableFromUtc = from,
                 availableUntilUtc = until,
+                stage = DefaultStage,
+                grade = DefaultGrade,
                 questions = new object[]
                 {
                     new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 1 }
@@ -1081,6 +1284,540 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/teacher/requests/{requestId}", new { action = "accept" })).StatusCode);
         var afterAccept = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
         Assert.NotEmpty(afterAccept!["items"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task TeacherStudents_SingleExamBan_BlocksOnlyThatExamAndKeepsAttempt()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("exam-ban-teacher"), "Teacher", "مدرس منع الامتحان");
+        var (student, _) = await RegisterAndLogin(Email("exam-ban-student"), "Student", "طالب منع الامتحان");
+        var (otherTeacher, _) = await RegisterAndLogin(Email("exam-ban-other-teacher"), "Teacher", "مدرس آخر للمنع");
+        await EnrollStudent(teacher, student);
+        var bannedExam = await CreateCustomExam(teacher, "امتحان ممنوع");
+        var allowedExam = await CreateCustomExam(teacher, "امتحان مسموح");
+
+        var studentMe = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        var studentId = GuidValue(studentMe!["id"]);
+        var teacherId = GuidValue((await teacher.GetFromJsonAsync<JsonNode>("/api/auth/me"))!["id"]);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/api/teacher/students")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{bannedExam}/enter", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{allowedExam}/enter", null)).StatusCode);
+        await OpenExam(teacher, bannedExam);
+        await OpenExam(teacher, allowedExam);
+        var submissionId = await StartAttempt(student, bannedExam);
+
+        // A teacher can only ban students from their own exams, and only linked students.
+        var foreignExam = await CreateCustomExam(otherTeacher, "امتحان مدرس آخر");
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await teacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = foreignExam })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await otherTeacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = bannedExam })).StatusCode);
+
+        var ban = await teacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = bannedExam });
+        Assert.Equal(HttpStatusCode.OK, ban.StatusCode);
+        Assert.True((await ReadJson(ban))["isBanned"]!.GetValue<bool>());
+        var duplicate = await teacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = bannedExam });
+        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+        Assert.True((await ReadJson(duplicate))["alreadyBanned"]!.GetValue<bool>());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.Equal(1, await db.TeacherStudentExamBans.CountAsync(x => x.ExamId == bannedExam && x.StudentId == studentId));
+        }
+
+        var available = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.DoesNotContain(available!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == bannedExam);
+        Assert.Contains(available["items"]!.AsArray(), x => GuidValue(x!["examId"]) == allowedExam);
+        var examList = await student.GetFromJsonAsync<JsonNode>("/api/exams?page=1&pageSize=100");
+        Assert.DoesNotContain(examList!["items"]!.AsArray(), x => GuidValue(x!["id"]) == bannedExam);
+        Assert.Contains(examList["items"]!.AsArray(), x => GuidValue(x!["id"]) == allowedExam);
+
+        // Every entry path is blocked for the banned exam, including the existing attempt.
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{bannedExam}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/exams/{bannedExam}/enter", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{bannedExam}/session")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{bannedExam}/paper")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/exams/{bannedExam}/start", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PutAsJsonAsync($"/api/submissions/{submissionId}/answers",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{allowedExam}")).StatusCode);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.Equal("InProgress", (await db.Submissions.SingleAsync(x => x.Id == submissionId)).Status);
+        }
+
+        var teacherList = await teacher.GetFromJsonAsync<JsonNode>(
+            $"/api/teacher/students?search={Uri.EscapeDataString("طالب")}&stage={Uri.EscapeDataString(DefaultStage)}&grade={Uri.EscapeDataString(DefaultGrade)}");
+        var row = teacherList!["items"]!.AsArray().Single(x => GuidValue(x!["studentId"]) == studentId);
+        Assert.Equal("Banned", row!["status"]!.GetValue<string>());
+        Assert.Equal(1, row["bannedExamCount"]!.GetValue<int>());
+        Assert.Contains(row["bannedExams"]!.AsArray(), x => GuidValue(x!["examId"]) == bannedExam);
+        Assert.Equal(1, teacherList["summary"]!["banned"]!.GetValue<int>());
+
+        var detail = await teacher.GetFromJsonAsync<JsonNode>($"/api/teacher/students/{studentId}");
+        Assert.Equal("Banned", detail!["status"]!.GetValue<string>());
+        var detailExam = detail["exams"]!.AsArray().Single(x => GuidValue(x!["examId"]) == bannedExam);
+        Assert.True(detailExam!["isBanned"]!.GetValue<bool>());
+        Assert.True(detailExam["attemptsCount"]!.GetValue<int>() >= 1);
+
+        var unban = await teacher.DeleteAsync($"/api/teacher/students/{studentId}/exam-bans/{bannedExam}");
+        Assert.Equal(HttpStatusCode.OK, unban.StatusCode);
+        var afterUnban = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Contains(afterUnban!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == bannedExam);
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{bannedExam}")).StatusCode);
+
+        var otherList = await otherTeacher.GetFromJsonAsync<JsonNode>("/api/teacher/students");
+        Assert.Empty(otherList!["items"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task TeacherStudents_SuspendAndReactivate_BlockAndRestoreEveryExamPath()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("suspend-teacher"), "Teacher", "مدرس إيقاف الطالب");
+        var (student, _) = await RegisterAndLogin(Email("suspend-student"), "Student", "طالب الإيقاف");
+        await EnrollStudent(teacher, student);
+        var firstExam = await CreateCustomExam(teacher, "امتحان الإيقاف الأول");
+        var secondExam = await CreateCustomExam(teacher, "امتحان الإيقاف الثاني");
+        var studentId = GuidValue((await student.GetFromJsonAsync<JsonNode>("/api/auth/me"))!["id"]);
+
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{firstExam}/enter", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{secondExam}/enter", null)).StatusCode);
+        await OpenExam(teacher, firstExam);
+        await OpenExam(teacher, secondExam);
+        var submissionId = await StartAttempt(student, firstExam);
+
+        var suspend = await teacher.PostAsync($"/api/teacher/students/{studentId}/suspend", null);
+        Assert.Equal(HttpStatusCode.OK, suspend.StatusCode);
+        Assert.Equal("Suspended", (await ReadJson(suspend))["status"]!.GetValue<string>());
+        var duplicateSuspend = await teacher.PostAsync($"/api/teacher/students/{studentId}/suspend", null);
+        Assert.Equal(HttpStatusCode.OK, duplicateSuspend.StatusCode);
+        Assert.True((await ReadJson(duplicateSuspend))["alreadySuspended"]!.GetValue<bool>());
+
+        var teacherList = await teacher.GetFromJsonAsync<JsonNode>("/api/teacher/students");
+        Assert.Equal("Suspended",
+            teacherList!["items"]!.AsArray().Single(x => GuidValue(x!["studentId"]) == studentId)!["status"]!.GetValue<string>());
+        Assert.True(teacherList["summary"]!["suspended"]!.GetValue<int>() >= 1);
+
+        var available = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Empty(available!["items"]!.AsArray());
+        foreach (var examId in new[] { firstExam, secondExam })
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{examId}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{examId}/session")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/exams/{examId}/paper")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/exams/{examId}/start", null)).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PutAsJsonAsync($"/api/submissions/{submissionId}/answers",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsJsonAsync($"/api/submissions/{submissionId}/submit",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.Equal("InProgress", (await db.Submissions.SingleAsync(x => x.Id == submissionId)).Status);
+        }
+
+        var reactivate = await teacher.PostAsync($"/api/teacher/students/{studentId}/reactivate", null);
+        Assert.Equal(HttpStatusCode.OK, reactivate.StatusCode);
+        Assert.Equal("Active", (await ReadJson(reactivate))["status"]!.GetValue<string>());
+        var afterReactivate = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Contains(afterReactivate!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == firstExam);
+        Assert.Contains(afterReactivate["items"]!.AsArray(), x => GuidValue(x!["examId"]) == secondExam);
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{firstExam}/session")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{firstExam}/paper")).StatusCode);
+
+        // The rejected submit must not leave the attempt stuck in Processing.
+        await SubmitAttempt(student, firstExam, submissionId);
+    }
+
+    [Fact]
+    public async Task TeacherStudents_Unlink_PreservesHistoryAndOtherTeacherLinks()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("unlink-teacher"), "Teacher", "مدرس فك الارتباط");
+        var (otherTeacher, _) = await RegisterAndLogin(Email("unlink-other-teacher"), "Teacher", "مدرس آخر لفك الارتباط");
+        var (student, _) = await RegisterAndLogin(Email("unlink-student"), "Student", "طالب فك الارتباط");
+        await EnrollStudent(teacher, student);
+        await EnrollStudent(otherTeacher, student);
+        var teacherExam = await CreateCustomExam(teacher, "امتحان المدرس الأول");
+        var otherExam = await CreateCustomExam(otherTeacher, "امتحان المدرس الثاني");
+
+        var studentMe = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        var studentId = GuidValue(studentMe!["id"]);
+        var studentEmail = studentMe["email"]!.GetValue<string>();
+        var teacherId = GuidValue((await teacher.GetFromJsonAsync<JsonNode>("/api/auth/me"))!["id"]);
+
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{teacherExam}/enter", null)).StatusCode);
+        await OpenExam(teacher, teacherExam);
+        var submissionId = await StartAttempt(student, teacherExam);
+        await SubmitAttempt(student, teacherExam, submissionId);
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await teacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = teacherExam })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await otherTeacher.PostAsJsonAsync($"/api/teacher/students/{studentId}/exam-bans", new { examId = teacherExam })).StatusCode);
+
+        var unlink = await teacher.DeleteAsync($"/api/teacher/students/{studentId}");
+        Assert.Equal(HttpStatusCode.OK, unlink.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var relationship = await db.TeacherStudentRequests.SingleAsync(x => x.TeacherId == teacherId && x.StudentId == studentId);
+            Assert.Equal("Accepted", relationship.Status);
+            Assert.NotNull(relationship.UnlinkedAtUtc);
+            Assert.Null(relationship.SuspendedAtUtc);
+            Assert.False(await db.TeacherStudentExamBans.AnyAsync(x => x.TeacherId == teacherId && x.StudentId == studentId));
+            Assert.True(await db.Submissions.AnyAsync(x => x.Id == submissionId));
+            Assert.True(await db.Users.AnyAsync(x => x.Id == studentId));
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync("/api/auth/me")).StatusCode);
+        var teacherList = await teacher.GetFromJsonAsync<JsonNode>("/api/teacher/students");
+        Assert.DoesNotContain(teacherList!["items"]!.AsArray(), x => GuidValue(x!["studentId"]) == studentId);
+        Assert.Equal(HttpStatusCode.NotFound, (await teacher.GetAsync($"/api/teacher/students/{studentId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await teacher.DeleteAsync($"/api/teacher/students/{studentId}")).StatusCode);
+
+        var otherList = await otherTeacher.GetFromJsonAsync<JsonNode>("/api/teacher/students");
+        Assert.Contains(otherList!["items"]!.AsArray(), x => GuidValue(x!["studentId"]) == studentId);
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{otherExam}")).StatusCode);
+        var available = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.DoesNotContain(available!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == teacherExam);
+        Assert.Contains(available["items"]!.AsArray(), x => GuidValue(x!["examId"]) == otherExam);
+
+        var results = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{teacherExam}/results");
+        Assert.Equal(1, results!["total"]!.GetValue<int>());
+        Assert.Equal(studentEmail, results["items"]!.AsArray().Single()!["email"]!.GetValue<string>());
+
+        var directory = await student.GetFromJsonAsync<JsonNode>("/api/teachers");
+        Assert.Equal("Unlinked",
+            directory!.AsArray().Single(x => GuidValue(x!["id"]) == teacherId)!["requestStatus"]!.GetValue<string>());
+
+        var reopen = await student.PostAsync($"/api/teachers/{teacherId}/request", null);
+        Assert.Equal(HttpStatusCode.OK, reopen.StatusCode);
+        Assert.Equal("Pending", (await ReadJson(reopen))["status"]!.GetValue<string>());
+        var pending = await teacher.GetFromJsonAsync<JsonNode>("/api/teacher/requests");
+        var pendingRow = pending!.AsArray().Single(x =>
+            x!["studentEmail"]!.GetValue<string>() == studentEmail && x["status"]!.GetValue<string>() == "Pending");
+        Assert.Equal(HttpStatusCode.OK,
+            (await teacher.PutAsJsonAsync($"/api/teacher/requests/{GuidValue(pendingRow!["id"])}", new { action = "accept" })).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var relationship = await db.TeacherStudentRequests.SingleAsync(x => x.TeacherId == teacherId && x.StudentId == studentId);
+            Assert.Equal("Accepted", relationship.Status);
+            Assert.Null(relationship.UnlinkedAtUtc);
+        }
+
+        var relinked = await teacher.GetFromJsonAsync<JsonNode>($"/api/teacher/students/{studentId}");
+        Assert.Equal("Active", relinked!["status"]!.GetValue<string>());
+        var relinkedExam = relinked["exams"]!.AsArray().Single(x => GuidValue(x!["examId"]) == teacherExam);
+        Assert.Equal(1, relinkedExam!["attemptsCount"]!.GetValue<int>());
+        Assert.False(relinkedExam["isBanned"]!.GetValue<bool>());
+        Assert.Equal(HttpStatusCode.OK, (await student.GetAsync($"/api/exams/{teacherExam}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Registration_ValidatesStudentStageAndGrade()
+    {
+        using var anonymous = factory.CreateClient();
+
+        var missing = await anonymous.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "طالب بلا مرحلة",
+            email = Email("education-missing"),
+            password = "Passw0rd!",
+            role = "Student"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+
+        var mismatched = await anonymous.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "طالب مرحلة غير متطابقة",
+            email = Email("education-mismatched"),
+            password = "Passw0rd!",
+            role = "Student",
+            stage = "ثانوي",
+            grade = "الصف الأول الابتدائي"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, mismatched.StatusCode);
+
+        var email = Email("education-valid");
+        var valid = await anonymous.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "طالب مرحلة صحيحة",
+            email,
+            password = "Passw0rd!",
+            role = "Student",
+            stage = DefaultStage,
+            grade = DefaultGrade
+        });
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var auth = await ReadJson(login);
+        Assert.Equal(DefaultStage, auth["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, auth["grade"]!.GetValue<string>());
+
+        var teacher = await anonymous.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "مدرس بلا مرحلة",
+            email = Email("education-teacher"),
+            password = "Passw0rd!",
+            role = "Teacher"
+        });
+        Assert.Equal(HttpStatusCode.OK, teacher.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExamCreation_ValidatesAndPersistsStageAndGrade()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("exam-education-teacher"), "Teacher", "مدرس مرحلة الامتحان");
+
+        async Task<HttpResponseMessage> Create(string? stage, string? grade) => await teacher.PostAsJsonAsync("/api/exams", new
+        {
+            title = "امتحان التحقق من المرحلة",
+            description = "وصف",
+            durationMinutes = 20,
+            maxAttempts = 1,
+            allowResumeAfterFocusLoss = true,
+            stage,
+            grade,
+            questions = new object[]
+            {
+                new { text = "٢ + ٢", type = "MultipleChoice", options = new[] { "3", "4" }, correctAnswer = "4", points = 1 }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await Create(null, null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Create("ثانوي", "الصف الأول الابتدائي")).StatusCode);
+
+        var created = await Create(DefaultStage, DefaultGrade);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = await ReadJson(created);
+        Assert.Equal(DefaultStage, body["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, body["grade"]!.GetValue<string>());
+
+        var detail = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{GuidValue(body["id"])}");
+        Assert.Equal(DefaultStage, detail!["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, detail["grade"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task AvailableExams_RequiresEnrollmentAndMatchingStageGrade()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("eligibility-teacher"), "Teacher", "مدرس الأهلية");
+        var (matching, _) = await RegisterAndLogin(Email("eligibility-matching"), "Student", "طالب مطابق");
+        var (mismatched, _) = await RegisterAndLogin(Email("eligibility-mismatched"), "Student", "طالب مرحلة أخرى", "ابتدائي", "الصف الأول الابتدائي");
+        var (outsider, _) = await RegisterAndLogin(Email("eligibility-outsider"), "Student", "طالب غير مسجل");
+        await EnrollStudent(teacher, matching);
+        await EnrollStudent(teacher, mismatched);
+        var examId = await CreateCustomExam(teacher, "امتحان الأهلية");
+
+        var matchingAvailable = await matching.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Contains(matchingAvailable!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+        var mismatchedAvailable = await mismatched.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.DoesNotContain(mismatchedAvailable!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+        var outsiderAvailable = await outsider.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.DoesNotContain(outsiderAvailable!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+
+        var matchingDetail = await matching.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}");
+        Assert.Equal(DefaultStage, matchingDetail!["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, matchingDetail["grade"]!.GetValue<string>());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await mismatched.GetAsync($"/api/exams/{examId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await mismatched.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"/api/exams/{examId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+
+        var entered = await matching.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, entered.StatusCode);
+        await OpenExam(teacher, examId);
+        var submissionId = await StartAttempt(matching, examId);
+
+        // Changing the student's stage/grade must immediately block every attempt path.
+        var update = await matching.PutAsJsonAsync("/api/auth/profile/education", new
+        {
+            stage = "ابتدائي",
+            grade = "الصف الأول الابتدائي"
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.PostAsync($"/api/exams/{examId}/start", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.GetAsync($"/api/exams/{examId}/paper")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.GetAsync($"/api/exams/{examId}/session")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.PutAsJsonAsync($"/api/submissions/{submissionId}/answers",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await matching.PostAsJsonAsync($"/api/submissions/{submissionId}/submit",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+    }
+
+    [Fact]
+    public async Task LegacyStudent_CanCompleteEducationProfileWithoutLosingAccount()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("legacy-teacher"), "Teacher", "مدرس الطالب القديم");
+        var (student, auth) = await RegisterAndLogin(Email("legacy-student"), "Student", "طالب قديم");
+        await EnrollStudent(teacher, student);
+        var examId = await CreateCustomExam(teacher, "امتحان بعد استكمال البيانات");
+
+        // Simulate an account created before the education fields existed.
+        var email = auth["email"]!.GetValue<string>();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.Users.SingleAsync(x => x.Email == email);
+            user.Stage = null;
+            user.Grade = null;
+            await db.SaveChangesAsync();
+        }
+
+        var me = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        Assert.True(me!["stage"] is null);
+        Assert.True(me["grade"] is null);
+        var beforeCompletion = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.DoesNotContain(beforeCompletion!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+
+        var invalid = await student.PutAsJsonAsync("/api/auth/profile/education", new
+        {
+            stage = "ثانوي",
+            grade = "الصف الأول الابتدائي"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        var update = await student.PutAsJsonAsync("/api/auth/profile/education", new
+        {
+            stage = DefaultStage,
+            grade = DefaultGrade
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = await ReadJson(update);
+        Assert.Equal(DefaultStage, updated["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, updated["grade"]!.GetValue<string>());
+
+        var refreshed = await student.GetFromJsonAsync<JsonNode>("/api/auth/me");
+        Assert.Equal(DefaultStage, refreshed!["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, refreshed["grade"]!.GetValue<string>());
+
+        var login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var newAuth = await ReadJson(login);
+        Assert.Equal(DefaultStage, newAuth["stage"]!.GetValue<string>());
+        Assert.Equal(DefaultGrade, newAuth["grade"]!.GetValue<string>());
+
+        var afterCompletion = await student.GetFromJsonAsync<JsonNode>("/api/exams/available");
+        Assert.Contains(afterCompletion!["items"]!.AsArray(), x => GuidValue(x!["examId"]) == examId);
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{examId}/enter", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task DirectEntryWithoutCode_BindsAttemptToAuthenticatedStudent_AndRejectsSubmissionTampering()
+    {
+        var (teacher, _) = await RegisterAndLogin(Email("binding-teacher"), "Teacher", "مدرس ربط المحاولة");
+        var (first, _) = await RegisterAndLogin(Email("binding-first"), "Student", "الطالب الأول");
+        var (second, _) = await RegisterAndLogin(Email("binding-second"), "Student", "الطالب الثاني");
+        await EnrollStudent(teacher, first);
+        await EnrollStudent(teacher, second);
+        var examId = await CreatePublishedExam(teacher);
+
+        var firstEnter = await first.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, firstEnter.StatusCode);
+        var firstSession = await ReadJson(firstEnter);
+        Assert.Equal(examId, GuidValue(firstSession["examId"]));
+        Assert.Equal("Waiting", firstSession["participantStatus"]!.GetValue<string>());
+        Assert.True(firstSession["submissionId"] is null);
+
+        await OpenExam(teacher, examId);
+        var firstSubmission = await StartAttempt(first, examId);
+
+        var secondEnter = await second.PostAsync($"/api/exams/{examId}/enter", null);
+        Assert.Equal(HttpStatusCode.OK, secondEnter.StatusCode);
+        Assert.True((await ReadJson(secondEnter))["submissionId"] is null);
+        var secondSubmission = await StartAttempt(second, examId);
+        Assert.NotEqual(firstSubmission, secondSubmission);
+
+        var secondPaper = await second.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/paper");
+        Assert.Equal(secondSubmission, GuidValue(secondPaper!["submission"]!["id"]));
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await second.GetAsync($"/api/submissions/{firstSubmission}/review")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await second.PutAsJsonAsync($"/api/submissions/{firstSubmission}/answers",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await second.PostAsJsonAsync($"/api/submissions/{firstSubmission}/submit",
+            new { answers = Array.Empty<object>(), focusLossDetected = false })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await second.PostAsJsonAsync($"/api/submissions/{firstSubmission}/events",
+            new { type = "focus-loss" })).StatusCode);
+
+        await SubmitAttempt(first, examId, firstSubmission);
+        var hiddenReview = await first.GetFromJsonAsync<JsonNode>($"/api/submissions/{firstSubmission}/review");
+        Assert.False(hiddenReview!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenReview["score"] is null);
+        Assert.True(hiddenReview["answers"]![0]!["correctAnswer"] is null);
+        Assert.True(hiddenReview["answers"]![0]!["awardedPoints"] is null);
+        Assert.False(string.IsNullOrWhiteSpace(hiddenReview["answers"]![0]!["studentAnswer"]!.GetValue<string>()));
+
+        var close = await teacher.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" });
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+
+        var hiddenAfterClose = await first.GetFromJsonAsync<JsonNode>($"/api/submissions/{firstSubmission}/review");
+        Assert.False(hiddenAfterClose!["resultsAvailable"]!.GetValue<bool>());
+        Assert.True(hiddenAfterClose["score"] is null);
+
+        await PublishResults(teacher, examId);
+
+        var releasedReview = await first.GetFromJsonAsync<JsonNode>($"/api/submissions/{firstSubmission}/review");
+        Assert.True(releasedReview!["resultsAvailable"]!.GetValue<bool>());
+        Assert.Equal(3, releasedReview["score"]!.GetValue<double>());
+        Assert.Equal("4", releasedReview["answers"]![0]!["correctAnswer"]!.GetValue<string>());
+        Assert.Equal(2, releasedReview["answers"]![0]!["awardedPoints"]!.GetValue<double>());
+
+        var results = await teacher.GetFromJsonAsync<JsonNode>($"/api/exams/{examId}/results");
+        var firstRow = results!["items"]!.AsArray().Single(x => GuidValue(x!["id"]) == firstSubmission)!;
+        Assert.Equal("الطالب الأول", firstRow["student"]!.GetValue<string>());
+        Assert.Equal(3, firstRow["score"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public async Task OtherTeacher_CannotAccessExamRosterResultsOrSubmission()
+    {
+        var (owner, _) = await RegisterAndLogin(Email("isolation-owner"), "Teacher", "المدرس المالك");
+        var (other, _) = await RegisterAndLogin(Email("isolation-other"), "Teacher", "مدرس غير مصرح");
+        var (student, _) = await RegisterAndLogin(Email("isolation-student"), "Student", "طالب العزل");
+        await EnrollStudent(owner, student);
+        var examId = await CreatePublishedExam(owner);
+        await student.PostAsync($"/api/exams/{examId}/enter", null);
+        await OpenExam(owner, examId);
+        var submissionId = await StartAttempt(student, examId);
+        await SubmitAttempt(student, examId, submissionId);
+
+        var ownerReview = await owner.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.Equal(3, ownerReview!["score"]!.GetValue<double>());
+        Assert.Equal("4", ownerReview["answers"]![0]!["correctAnswer"]!.GetValue<string>());
+        var answerId = GuidValue(ownerReview["answers"]![0]!["id"]);
+
+        Assert.Contains((await other.GetAsync($"/api/exams/{examId}")).StatusCode,
+            new[] { HttpStatusCode.NotFound, HttpStatusCode.Forbidden });
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/exams/{examId}/live")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/exams/{examId}/participants")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/exams/{examId}/results")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/exams/{examId}/review")).StatusCode);
+        Assert.Contains((await other.GetAsync($"/api/exams/{examId}/export")).StatusCode,
+            new[] { HttpStatusCode.NotFound, HttpStatusCode.Forbidden });
+        Assert.Contains((await other.PutAsJsonAsync($"/api/exams/{examId}/state", new { action = "close" })).StatusCode,
+            new[] { HttpStatusCode.NotFound, HttpStatusCode.Forbidden });
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.GetAsync($"/api/submissions/{submissionId}/review")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PutAsJsonAsync($"/api/submissions/{submissionId}/answers/{answerId}/grade",
+            new { awardedPoints = 1, feedback = "غير مصرح" })).StatusCode);
+
+        var stillVisible = await owner.GetFromJsonAsync<JsonNode>($"/api/submissions/{submissionId}/review");
+        Assert.Equal(3, stillVisible!["score"]!.GetValue<double>());
     }
 
     [Fact]
