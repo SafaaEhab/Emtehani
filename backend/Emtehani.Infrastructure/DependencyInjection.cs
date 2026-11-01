@@ -12,9 +12,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
-        var connectionString = ResolveConnectionString(config);
-        services.AddDbContext<AppDbContext>(options =>
+        // Resolve the connection when the DbContext is constructed, not during service
+        // registration. This keeps configuration overrides/tests authoritative and makes
+        // a missing production connection fail at the first database use.
+        services.AddDbContext<AppDbContext>((sp, options) =>
         {
+            var connectionString = ResolveConnectionString(sp.GetRequiredService<IConfiguration>());
             if (IsSqlServerConnection(connectionString))
                 options.UseSqlServer(connectionString);
             else

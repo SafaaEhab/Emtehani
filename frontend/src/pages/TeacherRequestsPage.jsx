@@ -82,13 +82,16 @@ export default function TeacherRequestsPage({ token }) {
                     <Avatar name={row.studentName} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-[12.5px] font-bold text-ink">{row.studentName}</p>
-                      <p className="truncate text-[10.5px] text-subtle" dir="ltr">{row.studentEmail}</p>
+                      {row.studentEmail ? <p className="truncate text-[10.5px] text-subtle" dir="ltr">{row.studentEmail}</p> : null}
+                      {row.status === 'Pending' && row.initiatedBy === 'Teacher' ? (
+                        <p className="mt-0.5 text-[10.5px] font-bold text-warning">بانتظار موافقة الطالب — لا يمكن للمدرس البت في هذا الطلب</p>
+                      ) : null}
                       <p className="mt-0.5 text-[10.5px] text-subtle">أُرسل {formatDate(row.createdAtUtc)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={status.tone}><StatusIcon size={11} />{status.label}</Badge>
-                    {row.status === 'Pending' ? (
+                    {row.status === 'Pending' && row.initiatedBy !== 'Teacher' ? (
                       <>
                         <Button size="xs" icon={Check} loading={busyId === row.id} onClick={() => decide(row, 'accept')}>قبول</Button>
                         <Button size="xs" variant="secondary" icon={X} loading={busyId === row.id} onClick={() => decide(row, 'reject')}>رفض</Button>

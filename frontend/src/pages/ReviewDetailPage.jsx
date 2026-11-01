@@ -116,8 +116,8 @@ export default function ReviewDetailPage({ token, user, submissionId, onBack, on
                 </div>
                 <div>
                   <p className="text-[11.5px] font-bold text-muted">النتيجة</p>
-                  <p className="mt-1 font-display text-[18px] font-semibold leading-tight tracking-[-0.03em] text-ink">بانتظار اعتماد النتائج</p>
-                  <p className="mt-1.5 max-w-[210px] text-[10.5px] leading-5 text-muted">ستظهر الدرجة بعد انتهاء جلسة الامتحان واعتماد المدرس للنتائج.</p>
+                  <p className="mt-1 font-display text-[18px] font-semibold leading-tight tracking-[-0.03em] text-ink">بانتظار موعد إظهار النتائج</p>
+                  <p className="mt-1.5 max-w-[210px] text-[10.5px] leading-5 text-muted">ستظهر الدرجة وفق موعد إظهار النتائج الذي حدده المدرس، وبعد اكتمال أي تصحيح يدوي مطلوب.</p>
                   <div className="mt-2"><StatusChip status={data.status} /></div>
                 </div>
               </>

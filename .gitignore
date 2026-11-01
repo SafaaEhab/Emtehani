@@ -40,3 +40,10 @@ Thumbs.db
 .DS_Store
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# QA screenshots, videos, and local debug scripts
+frontend/qa-artifacts/
+frontend/.qa-*-debug.mjs
+
+# Local agent configuration
+opencode.json

@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   Clock3,
+  CreditCard,
   FilePlus2,
   FileText,
   GraduationCap,
@@ -75,6 +76,14 @@ export default function TeacherDashboard({ token, user, onNavigate, onCreate, on
       />
 
       {error ? <Alert tone="danger" className="mb-5" onClose={() => setError('')}>{error}</Alert> : null}
+      {user?.subscriptionStatus !== 'Confirmed' ? (
+        <Alert tone="warning" className="mb-5" title="باقتك بانتظار التأكيد">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>اختر باقة Free لتأكيد اشتراكك. لا توجد رسوم أو وسائل دفع.</span>
+            <Button size="xs" icon={CreditCard} onClick={() => onNavigate?.('subscription')}>اختيار الباقة</Button>
+          </div>
+        </Alert>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={FileText} label="إجمالي الامتحانات" value={formatNumber(data?.totalExams)} note={`${formatNumber(data?.publishedExams)} منشور`} loading={loading} />

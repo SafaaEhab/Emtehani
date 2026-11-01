@@ -11,14 +11,18 @@ import {
   LockKeyhole,
   Mail,
   Moon,
+  Phone,
   Radio,
+  Search,
   ShieldCheck,
   Sparkles,
   Sun,
+  Ticket,
   UserRound,
   Users,
+  X,
 } from 'lucide-react';
-import { Alert, Button, Field, Input, Logo, Segmented, Select } from '../components/ui';
+import { Alert, Badge, Button, Field, Input, Logo, Segmented, Select } from '../components/ui';
 import { request } from '../lib/api';
 import { EDUCATION_STAGES, gradesForStage, isValidEducation } from '../lib/education';
 
@@ -85,7 +89,22 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   const [error, setError] = useState('');
   const [resendBusy, setResendBusy] = useState(false);
   const [localNotice, setLocalNotice] = useState('');
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', stage: '', grade: '' });
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    stage: '',
+    grade: '',
+    studentPhone: '',
+    parentPhone: '',
+    teacherCount: '1',
+    teacherIds: [],
+  });
+  const [teachers, setTeachers] = useState([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [inviteToken, setInviteToken] = useState('');
+  const [invitation, setInvitation] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -93,13 +112,50 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
 
   useEffect(() => {
     try {
-      const token = new URLSearchParams(window.location.search).get('resetToken');
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('resetToken');
       if (token) {
         setResetToken(token);
         setMode('reset');
       }
+      const invite = params.get('invite');
+      if (invite) {
+        setInviteToken(invite);
+        setMode('register');
+        setRole('Student');
+        request(`/api/public/invitations/${encodeURIComponent(invite)}`)
+          .then((data) => {
+            setInvitation(data);
+            setForm((current) => ({
+              ...current,
+              fullName: data?.studentName || current.fullName,
+              studentPhone: data?.studentPhone || current.studentPhone,
+              parentPhone: data?.parentPhone || current.parentPhone,
+              stage: data?.stage || current.stage,
+              grade: data?.grade || current.grade,
+              teacherCount: '1',
+              teacherIds: data?.teacherId ? [data.teacherId] : current.teacherIds,
+            }));
+            setLocalNotice(`دعوة من ${data?.teacherName || 'المدرس'}: أكمل بياناتك لإنشاء حسابك والموافقة على الارتباط.`);
+          })
+          .catch((err) => {
+            setInviteToken('');
+            setError(err.message || 'رابط الدعوة غير صالح أو منتهي الصلاحية.');
+          });
+      }
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'register' || role !== 'Student') return;
+    let active = true;
+    setTeachersLoading(true);
+    request('/api/public/teachers')
+      .then((rows) => { if (active) setTeachers(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (active) setTeachers([]); })
+      .finally(() => { if (active) setTeachersLoading(false); });
+    return () => { active = false; };
+  }, [mode, role]);
 
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -108,6 +164,23 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   function updateStage(event) {
     const stage = event.target.value;
     setForm((current) => ({ ...current, stage, grade: '' }));
+  }
+
+  function toggleTeacher(teacherId) {
+    setForm((current) => {
+      const selected = current.teacherIds.includes(teacherId);
+      if (selected) {
+        return { ...current, teacherIds: current.teacherIds.filter((id) => id !== teacherId) };
+      }
+      const limit = Math.max(1, Number(current.teacherCount) || 1);
+      if (current.teacherIds.length >= limit) return current;
+      return { ...current, teacherIds: [...current.teacherIds, teacherId] };
+    });
+  }
+
+  function updateTeacherCount(event) {
+    const value = event.target.value;
+    setForm((current) => ({ ...current, teacherCount: value }));
   }
 
   function switchMode(next) {
@@ -163,6 +236,17 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     }
     if (mode === 'register' && form.fullName.trim().length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
     if (mode === 'register' && role === 'Student' && !isValidEducation(form.stage, form.grade)) return setError('اختر المرحلة التعليمية والصف الدراسي المناسب له.');
+    if (mode === 'register' && role === 'Student') {
+      const studentPhone = form.studentPhone.replace(/[\s-]/g, '');
+      const parentPhone = form.parentPhone.replace(/[\s-]/g, '');
+      if (!/^\+?\d{7,15}$/.test(studentPhone)) return setError('أدخل رقم هاتف طالب صحيحاً (7 إلى 15 رقماً).');
+      if (!/^\+?\d{7,15}$/.test(parentPhone)) return setError('أدخل رقم هاتف ولي أمر صحيحاً (7 إلى 15 رقماً).');
+      if (studentPhone === parentPhone) return setError('رقم هاتف الطالب يجب أن يختلف عن رقم هاتف ولي الأمر.');
+      const teacherCount = Number(form.teacherCount);
+      if (!Number.isInteger(teacherCount) || teacherCount < 1 || teacherCount > 20) return setError('حدد عدد المدرسين من 1 إلى 20.');
+      if (form.teacherIds.length < 1) return setError('اختر مدرساً واحداً على الأقل من القائمة.');
+      if (form.teacherIds.length > teacherCount) return setError(`اخترت ${form.teacherIds.length} مدرساً، وهو أكثر من العدد الذي حددته (${teacherCount}).`);
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
     if (form.password.length < 8 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
     if (mode === 'register' && !accepted) return setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية.');
@@ -175,8 +259,13 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
         role,
         stage: role === 'Student' ? form.stage : null,
         grade: role === 'Student' ? form.grade : null,
+        studentPhone: role === 'Student' ? form.studentPhone.replace(/[\s-]/g, '') : null,
+        parentPhone: role === 'Student' ? form.parentPhone.replace(/[\s-]/g, '') : null,
+        teacherCount: role === 'Student' ? Number(form.teacherCount) : null,
+        teacherIds: role === 'Student' ? form.teacherIds : null,
+        invitationToken: role === 'Student' && inviteToken ? inviteToken : null,
       });
-      if (result?.registered) {
+      if (result?.registered && !result.autoLoggedIn) {
         setMode('login');
         setLocalNotice(result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول.');
       }
@@ -202,6 +291,19 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
   }
 
   const activeNotice = notice || localNotice;
+  const invitationTeacher = invitation?.teacherId
+    ? { id: invitation.teacherId, fullName: invitation.teacherName || 'المدرس المدعو' }
+    : null;
+  const allTeachers = invitationTeacher && !teachers.some((teacher) => teacher.id === invitationTeacher.id)
+    ? [invitationTeacher, ...teachers]
+    : teachers;
+  const filteredTeachers = allTeachers
+    .filter((teacher) => !teacherSearch.trim() || teacher.fullName.includes(teacherSearch.trim()))
+    .slice(0, 60);
+  const selectedTeachers = form.teacherIds
+    .map((id) => allTeachers.find((teacher) => teacher.id === id))
+    .filter(Boolean);
+  const teacherLimit = Math.max(1, Number(form.teacherCount) || 1);
 
   return (
     <div className="grid min-h-dvh bg-canvas lg:grid-cols-[1.02fr_.98fr]">
@@ -261,7 +363,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                         { value: 'Student', label: 'طالب', icon: GraduationCap, detail: 'أداء الامتحانات' },
                         { value: 'Teacher', label: 'مدرس', icon: Users, detail: 'إدارة الجلسات' },
                       ].map((item) => (
-                        <button key={item.value} type="button" onClick={() => setRole(item.value)} aria-pressed={role === item.value} className={`flex items-center gap-2.5 rounded-[12px] border p-3 text-right transition ${role === item.value ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-line-strong'}`}>
+                        <button key={item.value} type="button" data-testid={`auth-role-${item.value.toLowerCase()}`} onClick={() => setRole(item.value)} aria-pressed={role === item.value} className={`flex items-center gap-2.5 rounded-[12px] border p-3 text-right transition ${role === item.value ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-line-strong'}`}>
                           <span className={`grid size-8 shrink-0 place-items-center rounded-[9px] ${role === item.value ? 'bg-primary text-white' : 'bg-surface-soft text-muted'}`}><item.icon size={15} /></span>
                           <span><strong className="block text-[12.5px] text-ink">{item.label}</strong><span className="text-[10.5px] text-muted">{item.detail}</span></span>
                         </button>
@@ -270,20 +372,105 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                   </Field>
 
                   {role === 'Student' ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="المرحلة التعليمية" id="auth-stage" hint="اختر مرحلتك الدراسية الحالية.">
-                        <Select id="auth-stage" value={form.stage} onChange={updateStage}>
-                          <option value="">اختر المرحلة</option>
-                          {EDUCATION_STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
-                        </Select>
-                      </Field>
-                      <Field label="الصف الدراسي" id="auth-grade" hint="تظهر الامتحانات المطابقة لصفك فقط.">
-                        <Select id="auth-grade" value={form.grade} onChange={update('grade')} disabled={!form.stage}>
-                          <option value="">{form.stage ? 'اختر الصف' : 'اختر المرحلة أولاً'}</option>
-                          {gradesForStage(form.stage).map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                        </Select>
-                      </Field>
-                    </div>
+                    <>
+                      {invitation ? (
+                        <div className="rounded-[13px] border border-emerald/25 bg-emerald-soft p-3" data-testid="invitation-banner">
+                          <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-emerald"><Ticket size={13} />دعوة من {invitation.teacherName || 'المدرس'}</p>
+                          <p className="mt-1 text-[10.5px] leading-5 text-muted">تم تعبئة بيانات الدعوة. راجعها وأكمل إنشاء الحساب للموافقة على الارتباط بهذا المدرس.</p>
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="المرحلة التعليمية" id="auth-stage" hint="اختر مرحلتك الدراسية الحالية.">
+                          <Select id="auth-stage" value={form.stage} onChange={updateStage}>
+                            <option value="">اختر المرحلة</option>
+                            {EDUCATION_STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+                          </Select>
+                        </Field>
+                        <Field label="الصف الدراسي" id="auth-grade" hint="تظهر الامتحانات المطابقة لصفك فقط.">
+                          <Select id="auth-grade" value={form.grade} onChange={update('grade')} disabled={!form.stage}>
+                            <option value="">{form.stage ? 'اختر الصف' : 'اختر المرحلة أولاً'}</option>
+                            {gradesForStage(form.stage).map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                          </Select>
+                        </Field>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="رقم هاتف الطالب" id="auth-student-phone" hint="رقم فريد على مستوى المنصة.">
+                          <div className="relative">
+                            <Phone size={15} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
+                            <Input id="auth-student-phone" dir="ltr" inputMode="tel" autoComplete="tel" maxLength={20} value={form.studentPhone} onChange={update('studentPhone')} placeholder="01xxxxxxxxx" className="pr-10 text-left" />
+                          </div>
+                        </Field>
+                        <Field label="رقم هاتف ولي الأمر" id="auth-parent-phone" hint="قد يشترك فيه الإخوة، ويجب أن يختلف عن رقم الطالب.">
+                          <Input id="auth-parent-phone" dir="ltr" inputMode="tel" maxLength={20} value={form.parentPhone} onChange={update('parentPhone')} placeholder="01xxxxxxxxx" className="text-left" />
+                        </Field>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                        <Field label="عدد المدرسين" id="auth-teacher-count" hint="الحد الذي تختاره لنفسك.">
+                          <Input id="auth-teacher-count" type="number" min={1} max={20} inputMode="numeric" value={form.teacherCount} onChange={updateTeacherCount} className="text-center" />
+                        </Field>
+                        <div className="flex flex-col justify-end">
+                          <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                            <span className="text-[11px] font-bold text-muted">المختارون:</span>
+                            <Badge tone={form.teacherIds.length > teacherLimit ? 'danger' : form.teacherIds.length ? 'emerald' : 'neutral'}>
+                              {form.teacherIds.length} / {teacherLimit}
+                            </Badge>
+                            {selectedTeachers.map((teacher) => (
+                              <button key={teacher.id} type="button" onClick={() => toggleTeacher(teacher.id)} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-1 text-[10px] font-bold text-primary transition hover:bg-danger-soft hover:text-danger" title="إزالة المدرس">
+                                {teacher.fullName}<X size={10} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[13px] border border-line bg-surface-soft/60 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-[11.5px] font-bold text-ink">اختر المدرسين</p>
+                          <span className="text-[10px] text-subtle">سيصل لكل مدرس طلب ارتباط</span>
+                        </div>
+                        <div className="relative mb-2">
+                          <Search size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-subtle" />
+                          <input
+                            value={teacherSearch}
+                            onChange={(event) => setTeacherSearch(event.target.value)}
+                            placeholder="ابحث باسم المدرس..."
+                            aria-label="ابحث باسم المدرس"
+                            className="h-9 w-full rounded-[9px] border border-line bg-surface pr-8 pl-3 text-[12px] text-ink outline-none transition placeholder:text-subtle focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                          />
+                        </div>
+                        {teachersLoading ? (
+                          <p className="py-3 text-center text-[11px] text-muted">جارٍ تحميل المدرسين...</p>
+                        ) : filteredTeachers.length === 0 ? (
+                          <p className="py-3 text-center text-[11px] text-muted">لا يوجد مدرسون متاحون الآن. يمكنك التسجيل لاحقاً واختيار مدرس من صفحة المدرسين.</p>
+                        ) : (
+                          <div className="ui-scrollbar-hidden grid max-h-44 gap-1 overflow-y-auto pe-1">
+                            {filteredTeachers.map((teacher) => {
+                              const selected = form.teacherIds.includes(teacher.id);
+                              const disabled = !selected && form.teacherIds.length >= teacherLimit;
+                              return (
+                                <button
+                                  key={teacher.id}
+                                  type="button"
+                                  data-testid={`auth-teacher-${teacher.id}`}
+                                  onClick={() => toggleTeacher(teacher.id)}
+                                  disabled={disabled}
+                                  aria-pressed={selected}
+                                  className={`flex items-center justify-between gap-2 rounded-[9px] border px-2.5 py-2 text-right text-[11.5px] transition ${selected ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface text-ink hover:border-line-strong'} ${disabled ? 'cursor-not-allowed opacity-45' : ''}`}
+                                >
+                                  <span className="flex items-center gap-2"><GraduationCap size={13} />{teacher.fullName}</span>
+                                  <span className={`grid size-4 place-items-center rounded-full border ${selected ? 'border-primary bg-primary text-white' : 'border-line-strong'}`}>{selected ? <CheckCircle2 size={10} /> : null}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {form.teacherIds.length > teacherLimit ? <p className="mt-2 text-[10.5px] font-bold text-danger">عدد المختارين أكبر من الحد. قلّل الاختيار أو ارفع العدد.</p> : null}
+                        <p className="mt-2 text-[10px] leading-5 text-subtle">لا يظهر الطالب للمدرس إلا بعد قبول طلب الارتباط. لا يمكن إرسال أكثر من طلب واحد لنفس المدرس.</p>
+                      </div>
+                    </>
                   ) : null}
 
                 </>

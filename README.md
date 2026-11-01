@@ -22,7 +22,7 @@ dotnet run --project Emtehani.API
 
 - Swagger: `/swagger` (مفعّل تلقائياً في Development فقط).
 - الفحص الصحي: `/health`.
-- في Development يمكن تشغيل SQL Server LocalDB افتراضياً، أو تمرير `ConnectionStrings__DefaultConnection` / `DATABASE_URL`.
+- لم يعد هناك اتصال LocalDB مضمّن في `appsettings.json`. يجب تمرير `ConnectionStrings__DefaultConnection` أو `DATABASE_URL` في كل البيئات. راجع `docs/monsterasp-deployment.md` لإعدادات MonsterASP.
 - في Development فقط، عند غياب إعدادات SMTP، تُفعّل الحسابات تلقائياً لتسهيل التجربة. لا تستخدم هذا السلوك في الإنتاج.
 
 من مجلد `frontend`:
@@ -75,7 +75,7 @@ npm run test:e2e
 
 ## متغيرات الإنتاج
 
-يجب ضبط المتغيرات في لوحة Vercel (Environment Variables)، وليس في المستودع:
+يجب ضبط متغيرات الـ API في لوحة **MonsterASP** (Website → Environment Variables)، ومتغيرات الواجهة في **Vercel**. لا تضع أي سر في المستودع. راجع `docs/monsterasp-deployment.md` للتفاصيل.
 
 | المتغير | إلزامي | الوصف |
 |---|---|---|
@@ -83,7 +83,7 @@ npm run test:e2e
 | `Jwt__Key` أو `JWT_KEY` | نعم | سر عشوائي 32 حرفاً على الأقل، ولا يعاد استخدامه بين البيئات |
 | `Jwt__Issuer` / `Jwt__Audience` | مستحسن | `Emtehani` / `Emtehani.Client` |
 | `FrontendOrigin` | نعم | أصل الواجهة بالضبط، مثل `https://emtehani.vercel.app`، ويمكن فصل أكثر من أصل بفاصلة |
-| `PublicApiUrl` | نعم | أصل الـ API العام **دون `/api`**، مثل `https://emtehani-api.vercel.app`؛ يُستخدم في رابط تأكيد البريد |
+| `PublicApiUrl` | نعم | أصل الـ API العام **دون `/api`**، مثل `https://emtehani.runasp.net`؛ يُستخدم في رابط تأكيد البريد |
 | `DATABASE_URL` أو `POSTGRES_URL` | نعم* | رابط PostgreSQL، مثل `postgres://user:password@host/db?sslmode=require` |
 | `ConnectionStrings__DefaultConnection` | بديل | اتصال SQL Server أو PostgreSQL إذا لم يُستخدم `DATABASE_URL` |
 | `Auth__AutoConfirmWithoutSmtp` | نعم | يجب أن يكون `false` في الإنتاج |
@@ -129,17 +129,17 @@ pg_restore -h 127.0.0.1 -p 5432 -U postgres -d emtehani_restore_check --no-owner
 - تحديد معدل الطلبات، وحدود لحجم الطلب والبيانات，تحقق من الملكية والدور في نقاط النهاية.
 - منع بدء المحاولة دون انضمام，منع الوصول لورقة الامتحان قبل الأوان，وإبطال التسليم المكرر.
 - تصدير CSV محمي من حقن الصيغ，ومراجعة المقالات مقيدة بمدرس الامتحان.
-- نقطة نهاية إعادة التعيين الإداري (`/api/admin/reset`) معطلة افتراضياً في الإنتاج وتتطلب JWT مع دور Admin وسجل تدقيق قبل الحذف.
-- قفل تنافسي باستخدام مفاتيح استشارية PostgreSQL لمنع التضمين المتزامن للتسليم.
+- نقطة نهاية إعادة التعيين الإداري (`/api/admin/reset`) غير مخططة في بيئة الإنتاج، وتتطلب JWT مع دور Admin وسجل تدقيق في البيئات غير الإنتاجية فقط.
+- قفل تنافسي باستخدام مفاتيح استشارية PostgreSQL/مزلاج SQL Server لمنع التضمين المتزامن للتسليم.
 
 ## قائمة التحقق قبل النشر
 
-1. أضف المتغيرات الإلزامية في Vercel وتأكد من `ASPNETCORE_ENVIRONMENT=Production`.
+1. أضف المتغيرات الإلزامية للـ API في MonsterASP وللواجهة في Vercel، وتأكد من `ASPNETCORE_ENVIRONMENT=Production` للـ API.
 2. استخدم مفتاح JWT عشوائياً جديداً ولا تشاركه بين الإنتاج والتجربة.
 3. اضبط `FrontendOrigin` و`PublicApiUrl` بعنواني HTTPS الفعليين، دون مسار أو شرطة زائدة في الأصل.
 4. اضبط SMTP واختبر رسالة تأكيد فعلية，ثم تأكد أن `Auth__AutoConfirmWithoutSmtp=false`.
 5. تحقق من نجاح الإقلاع: سجّل مدرساً من صفحة التسجيل وتأكد من قبول الطلب دون رمز دعوة.
-6. تأكد أن `Admin__ResetEnabled=false` (افتراضي) ما لم تكن تحتاج إلى نقطة النهاية للإعادة الطارئة.
+6. تأكد أن `/api/admin/reset` غير متاح في الإنتاج، وأن حساب الأدمن أُنشئ عبر Bootstrap فقط عند الحاجة.
 7. خذ نسخة احتياطية من قاعدة البيانات，تحقق من استعادتها على بيئة معزولة，ثم راقب سجلات بدء التشغيل بعد النشر.
 8. نفذ اختباراً كاملاً：صحة الخدمة，تسجيل مدرس，تأكيد بريد، إنشاء امتحان، نشر，فتح، دخول طالب مباشر，بدء，حفظ，تسليم، نشر النتائج，مراجعة مقال，تصدير. شغّل Playwright محلياً أو في CI قبل النشر.
 9. تحقق من عدم ظهور `.env.local` أو أي سر في `git status`.

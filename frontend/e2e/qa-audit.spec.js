@@ -15,6 +15,7 @@ import {
   openExam,
   registerAndLogin,
   uiLogin,
+  uniquePhone,
   uniqueSuffix,
 } from './helpers.js';
 
@@ -127,11 +128,11 @@ function questionCard(page, text) {
 }
 
 async function submitExamUi(page, { final = true } = {}) {
-  await page.getByRole('button', { name: 'تسليم', exact: true }).filter({ visible: true }).first().click();
+  await page.getByRole('button', { name: 'تسليم الامتحان', exact: true }).filter({ visible: true }).first().click();
   const dialog = page.getByRole('dialog').filter({ hasText: 'تسليم الامتحان؟' });
   await expect(dialog).toBeVisible();
   if (final) await dialog.getByRole('button', { name: 'تسليم نهائي', exact: true }).click();
-  else await dialog.getByRole('button', { name: 'مراجعة الإجابات', exact: true }).click();
+  else await dialog.getByRole('button', { name: 'العودة للأسئلة', exact: true }).click();
 }
 
 // ---------------------------------------------------------------------------
@@ -198,11 +199,14 @@ test('public landing page: anchors, FAQ, theme, links, and developer portfolio',
 // Authentication and form validation
 // ---------------------------------------------------------------------------
 
-test('authentication: validation, registration, duplicate email, login, and password toggle', async ({ page }, testInfo) => {
+test('authentication: validation, registration, duplicate email, login, and password toggle', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium', 'Desktop auth audit.');
   test.setTimeout(120_000);
   const suffix = uniqueSuffix();
   const email = `qa-auth-${suffix}@example.com`;
+  const studentPhone = uniquePhone();
+  const parentPhone = uniquePhone();
+  const registrationTeacher = await registerAndLogin(request, 'Teacher', 'مدرس دعم نموذج التسجيل');
 
   await openAuth(page, 'login');
   await expect(page.getByRole('heading', { name: 'أهلاً بعودتك.' })).toBeVisible();
@@ -239,12 +243,15 @@ test('authentication: validation, registration, duplicate email, login, and pass
   // Switch to registration and exercise role selection and per-field validation.
   await page.getByRole('button', { name: 'حساب جديد', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'أنشئ حسابك في دقيقة.' })).toBeVisible();
-  await page.getByRole('button', { name: /مدرس/ }).click();
-  await expect(page.getByRole('button', { name: /مدرس/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: /طالب/ }).click();
-  await expect(page.getByRole('button', { name: /طالب/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('[data-testid="auth-role-teacher"]').click();
+  await expect(page.locator('[data-testid="auth-role-teacher"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('[data-testid="auth-role-student"]').click();
+  await expect(page.locator('[data-testid="auth-role-student"]')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#auth-stage').selectOption('ثانوي');
   await page.locator('#auth-grade').selectOption('الصف الثالث الثانوي');
+  await page.locator('#auth-student-phone').fill(studentPhone);
+  await page.locator('#auth-parent-phone').fill(parentPhone);
+  await page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`).click();
 
   await page.locator('#auth-name').fill('AB');
   await page.locator('#auth-email').fill(email);
@@ -279,6 +286,9 @@ test('authentication: validation, registration, duplicate email, login, and pass
   await page.locator('#auth-password').fill('ValidPass!2026');
   await page.locator('#auth-stage').selectOption('ثانوي');
   await page.locator('#auth-grade').selectOption('الصف الثالث الثانوي');
+  await page.locator('#auth-student-phone').fill(uniquePhone());
+  await page.locator('#auth-parent-phone').fill(uniquePhone());
+  await page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`).click();
   await page.locator('input[type="checkbox"]').check();
   await page.locator('form').getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('البريد مستخدم بالفعل.');
@@ -483,28 +493,38 @@ test('student lifecycle: available exams, lobby, all question types, autosave, c
   await expect(studentPage.getByText('6 من 6').first()).toHaveCount(0);
   await mcCard.locator('label').first().click();
   await expect(mcCard.getByRole('radio').first()).toBeChecked();
+  await studentPage.getByRole('button', { name: 'التالي', exact: true }).click();
 
   const tfCard = questionCard(studentPage, questionTexts.tf);
+  await expect(tfCard).toBeVisible();
   await tfCard.getByRole('button', { name: 'صح', exact: true }).click();
   await expect(tfCard.getByRole('button', { name: 'صح', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await studentPage.getByRole('button', { name: 'التالي', exact: true }).click();
 
   const fillCard = questionCard(studentPage, questionTexts.fill);
+  await expect(fillCard).toBeVisible();
   await fillCard.getByRole('textbox').fill('الرياض');
+  await studentPage.getByRole('button', { name: 'التالي', exact: true }).click();
 
   const shortCard = questionCard(studentPage, questionTexts.short);
+  await expect(shortCard).toBeVisible();
   await shortCard.getByRole('textbox').fill('الرياض');
+  await studentPage.getByRole('button', { name: 'التالي', exact: true }).click();
 
   const matchingCard = questionCard(studentPage, questionTexts.matching);
+  await expect(matchingCard).toBeVisible();
   await matchingCard.locator('select').nth(0).selectOption({ label: '1' });
   await matchingCard.locator('select').nth(1).selectOption({ label: '2' });
+  await studentPage.getByRole('button', { name: 'التالي', exact: true }).click();
 
   const essayCard = questionCard(studentPage, questionTexts.essay);
+  await expect(essayCard).toBeVisible();
   await essayCard.getByRole('textbox').fill('الرياض هي عاصمة المملكة العربية السعودية، وتُعد مركزاً إدارياً واقتصادياً مهماً.');
-  await expect(studentPage.getByText('6 من 6 سؤال تمت الإجابة')).toBeVisible();
+  await expect(studentPage.getByText(/6 سؤال تمت الإجابة/)).toBeVisible();
 
   // Explicit save + copy detection telemetry.
   await studentPage.getByRole('button', { name: 'حفظ الآن', exact: true }).click();
-  await expect(studentPage.locator('header [role="status"]')).toContainText('تم الحفظ تلقائياً', { timeout: 15_000 });
+  await expect(studentPage.locator('[data-testid="exam-save-status"]')).toContainText('تم الحفظ تلقائياً', { timeout: 15_000 });
   const copyRequest = studentPage.waitForResponse((response) => response.url().includes('/api/submissions/') && response.url().endsWith('/events'));
   await studentPage.evaluate(() => document.dispatchEvent(new Event('copy', { bubbles: true, cancelable: true })));
   expect((await copyRequest).status()).toBe(200);
@@ -517,7 +537,7 @@ test('student lifecycle: available exams, lobby, all question types, autosave, c
   await expect(studentPage.getByRole('dialog')).toHaveCount(0);
   await submitExamUi(studentPage, { final: true });
   await expect(studentPage.getByText('نتيجتك', { exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(studentPage.getByText('بانتظار اعتماد النتائج').first()).toBeVisible();
+  await expect(studentPage.getByText('بانتظار موعد إظهار النتائج').first()).toBeVisible();
   await expect(studentPage.getByText('الدرجات والإجابات الصحيحة محجوبة مؤقتاً')).toBeVisible();
   await expect(studentPage.getByText('قيد المراجعة').first()).toBeVisible();
   await expect(studentPage.getByText('الرياض هي عاصمة المملكة العربية السعودية')).toBeVisible();
@@ -972,9 +992,12 @@ test('mobile exam room: question map, responsive header, dialog, and submission'
   expect(mapPanel).toBeTruthy();
 
   await firstCard.locator('label').first().click();
+  await page.getByRole('button', { name: 'التالي', exact: true }).click();
   const secondCard = questionCard(page, `سؤال جوال ثانٍ ${suffix}`);
+  await expect(secondCard).toBeVisible();
   await secondCard.getByRole('button', { name: 'صح', exact: true }).click();
-  await expect(page.getByText('2 من 2 سؤال تمت الإجابة')).toBeVisible();
+  await expect(page.getByText('السؤال 2 من 2', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText('تمت الإجابة', { exact: true }).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'تسليم الامتحان', exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByRole('dialog').filter({ hasText: 'تسليم الامتحان؟' })).toBeVisible();

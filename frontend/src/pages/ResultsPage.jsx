@@ -42,7 +42,7 @@ function ScoreCell({ score, maxScore, status, resultsAvailable = true }) {
   if (!resultsAvailable) {
     return (
       <div className="min-w-[90px]">
-        <span className="inline-flex items-center gap-1.5 rounded-[8px] bg-warning-soft px-2 py-1 text-[10.5px] font-bold text-warning"><Clock3 size={11} />بانتظار اعتماد النتائج</span>
+        <span className="inline-flex items-center gap-1.5 rounded-[8px] bg-warning-soft px-2 py-1 text-[10.5px] font-bold text-warning"><Clock3 size={11} />بانتظار موعد النتائج</span>
       </div>
     );
   }
@@ -89,7 +89,7 @@ function StudentResults({ token, onOpenReview }) {
       <PageHeader
         eyebrow="متابعة الأداء"
         title="نتائجي"
-        description="كل محاولة مسلّمة تظهر هنا. تُعرض الدرجات والإجابات الصحيحة بعد انتهاء الامتحان واعتماد النتائج."
+        description="كل محاولة مسلّمة تظهر هنا. تظهر الدرجات والإجابات الصحيحة وفق موعد إظهار النتائج الذي يحدده المدرس وبعد اكتمال التصحيح اليدوي عند الحاجة."
         action={<Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={() => load(true)}>تحديث</Button>}
       />
 
@@ -99,7 +99,7 @@ function StudentResults({ token, onOpenReview }) {
         <StatCard icon={FileText} label="المحاولات" value={formatNumber(items.length)} note="محاولات مسلّمة" loading={loading} />
         <StatCard icon={Target} label="متوسط النتائج" value={`${formatNumber(average)}%`} note="من النتائج المعتمدة" tone="blue" loading={loading} />
         <StatCard icon={Award} label="أفضل نتيجة" value={`${formatNumber(best)}%`} note="أعلى نسبة معتمدة" tone="emerald" loading={loading} />
-        <StatCard icon={Clock3} label="بانتظار الاعتماد" value={formatNumber(items.filter((item) => item.resultsAvailable === false).length)} note="تظهر بعد انتهاء الامتحان" tone="warning" loading={loading} />
+        <StatCard icon={Clock3} label="بانتظار النتائج" value={formatNumber(items.filter((item) => item.resultsAvailable === false).length)} note="حسب موعد الإظهار المحدد" tone="warning" loading={loading} />
       </div>
 
       <Card className="overflow-hidden">

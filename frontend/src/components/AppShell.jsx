@@ -5,6 +5,7 @@ import {
   BookOpen,
   BookOpenCheck,
   ClipboardCheck,
+  CreditCard,
   ExternalLink,
   FileText,
   GraduationCap,
@@ -15,13 +16,14 @@ import {
   Menu,
   Moon,
   PlusCircle,
+  ShieldCheck,
   Sun,
   UserRound,
   Users,
   X,
 } from 'lucide-react';
 import { Avatar, cn, IconButton, Logo, StatusChip } from './ui';
-
+import SessionCountdown from './SessionCountdown';
 const teacherNav = [
   { key: 'dashboard', label: 'مركز التحكم', shortLabel: 'المركز', icon: LayoutDashboard },
   { key: 'exams', label: 'الامتحانات', shortLabel: 'اختبارات', icon: FileText },
@@ -30,6 +32,7 @@ const teacherNav = [
   { key: 'essays', label: 'مراجعة المقالات', icon: ClipboardCheck },
   { key: 'requests', label: 'طلبات الطلاب', icon: UserRound },
   { key: 'students', label: 'إدارة الطلاب', shortLabel: 'الطلاب', icon: Users },
+  { key: 'subscription', label: 'الاشتراك', icon: CreditCard },
   { key: 'audit', label: 'سجل النشاط', icon: History },
 ];
 
@@ -37,7 +40,13 @@ const studentNav = [
   { key: 'dashboard', label: 'نظرة عامة', shortLabel: 'الرئيسية', icon: LayoutDashboard },
   { key: 'available', label: 'الامتحانات المتاحة', shortLabel: 'المتاحة', icon: BookOpenCheck },
   { key: 'results', label: 'نتائجي', icon: BarChart3 },
-  { key: 'teachers', label: 'المدرسون', icon: GraduationCap },
+  { key: 'teachers', label: 'المدرسون', shortLabel: 'المدرسون', icon: GraduationCap },
+  { key: 'profile', label: 'ملفي الأكاديمي', shortLabel: 'ملفي', icon: UserRound },
+];
+
+const adminNav = [
+  { key: 'admin', label: 'لوحة الإدارة', shortLabel: 'الإدارة', icon: ShieldCheck },
+  { key: 'admin-teachers', label: 'المدرسون والاشتراكات', shortLabel: 'المدرسون', icon: Users },
 ];
 
 const pageMeta = {
@@ -50,6 +59,10 @@ const pageMeta = {
   requests: { title: 'طلبات الطلاب', eyebrow: 'إدارة التسجيل' },
   students: { title: 'إدارة الطلاب', eyebrow: 'متابعة الطلاب' },
   teachers: { title: 'المدرسون', eyebrow: 'اختيار المدرس' },
+  profile: { title: 'ملفي الأكاديمي', eyebrow: 'بياناتي وسجلي' },
+  subscription: { title: 'الاشتراك', eyebrow: 'الخطة الحالية' },
+  admin: { title: 'لوحة الإدارة', eyebrow: 'إشراف المنصة' },
+  'admin-teachers': { title: 'المدرسون والاشتراكات', eyebrow: 'إشراف المنصة' },
   audit: { title: 'سجل النشاط', eyebrow: 'تتبع العمليات' },
   available: { title: 'الامتحانات المتاحة', eyebrow: 'بوابة الطالب' },
   lobby: { title: 'غرفة الانتظار', eyebrow: 'الامتحان' },
@@ -92,7 +105,7 @@ function SidebarContent({ user, nav, activePage, onNavigate, onLogout, onClose, 
           <p className="truncate text-[13px] font-bold text-ink">{user?.fullName || 'مستخدم امتحاني'}</p>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted">
             <UserRound size={11} />
-            {user?.role === 'Teacher' ? 'حساب مدرس' : 'حساب طالب'}
+            {user?.role === 'Teacher' ? 'حساب مدرس' : user?.role === 'Admin' ? 'حساب إدارة' : 'حساب طالب'}
           </div>
         </div>
         <StatusChip status="Active" showIcon={false} className="px-2 py-1 text-[10px]" />
@@ -138,7 +151,7 @@ function SidebarContent({ user, nav, activePage, onNavigate, onLogout, onClose, 
 
 export default function AppShell({ user, page, activePage, title, subtitle, children, onNavigate, onLogout, theme, onToggleTheme }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const nav = user?.role === 'Teacher' ? teacherNav : studentNav;
+  const nav = user?.role === 'Teacher' ? teacherNav : user?.role === 'Admin' ? adminNav : studentNav;
   const meta = pageMeta[page] || pageMeta.dashboard;
   const visibleNav = nav.slice(0, 4);
 
@@ -185,6 +198,8 @@ export default function AppShell({ user, page, activePage, title, subtitle, chil
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <div className="md:hidden"><SessionCountdown compact /></div>
+              <div className="hidden md:block"><SessionCountdown /></div>
               <IconButton label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} onClick={onToggleTheme} className="hidden sm:grid">
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               </IconButton>
@@ -197,7 +212,7 @@ export default function AppShell({ user, page, activePage, title, subtitle, chil
                 <Avatar name={user?.fullName} size="sm" />
                 <div className="hidden min-w-0 sm:block">
                   <p className="max-w-[120px] truncate text-[11.5px] font-bold leading-tight text-ink">{user?.fullName}</p>
-                  <p className="text-[10px] text-muted">{user?.role === 'Teacher' ? 'مدرس' : 'طالب'}</p>
+                  <p className="text-[10px] text-muted">{user?.role === 'Teacher' ? 'مدرس' : user?.role === 'Admin' ? 'إدارة' : 'طالب'}</p>
                 </div>
                 <button type="button" onClick={onLogout} aria-label="تسجيل الخروج" title="تسجيل الخروج" className="ms-1 text-subtle transition hover:text-danger"><LogOut size={14} /></button>
               </div>

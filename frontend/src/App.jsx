@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, LoaderCircle, LogOut, Sparkles } from 'lucide-react';
 import DeveloperPage from './DeveloperPage.jsx';
 import AppShell from './components/AppShell';
+import SessionCountdown from './components/SessionCountdown';
 import { Button, Logo } from './components/ui';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
@@ -22,7 +23,11 @@ import LobbyPage from './pages/LobbyPage';
 import ExamRoomPage from './pages/ExamRoomPage';
 import ReviewDetailPage from './pages/ReviewDetailPage';
 import EssayReviewPage from './pages/EssayReviewPage';
-import { clearAuth, getStoredAuth, request, storeAuth } from './lib/api';
+import StudentProfilePage from './pages/StudentProfilePage';
+import SubscriptionPage from './pages/SubscriptionPage';
+import AdminDashboard from './pages/AdminDashboard';
+import { authUserFromResponse, clearAuth, getStoredAuth, request, storeAuth, storeSession } from './lib/api';
+import { installWebMcpTools } from './lib/webmcp';
 
 const teacherTitles = {
   dashboard: 'مركز التحكم',
@@ -33,6 +38,7 @@ const teacherTitles = {
   essays: 'مراجعة المقالات',
   requests: 'طلبات الطلاب',
   students: 'إدارة الطلاب',
+  subscription: 'الاشتراك',
   audit: 'سجل النشاط',
 };
 
@@ -41,6 +47,13 @@ const studentTitles = {
   available: 'الامتحانات المتاحة',
   results: 'نتائجي',
   teachers: 'المدرسون',
+  profile: 'ملفي الأكاديمي',
+};
+
+const adminTitles = {
+  dashboard: 'لوحة الإدارة',
+  admin: 'لوحة الإدارة',
+  'admin-teachers': 'المدرسون والاشتراكات',
 };
 
 const activePages = {
@@ -63,14 +76,18 @@ function isPortfolioUrl() {
   try { return new URLSearchParams(window.location.search).has('portfolio'); } catch { return false; }
 }
 
+function isInviteUrl() {
+  try { return new URLSearchParams(window.location.search).has('invite'); } catch { return false; }
+}
+
 export default function App() {
   const stored = getStoredAuth();
   const [token, setToken] = useState(stored.token);
   const [user, setUser] = useState(stored.user);
   const [booting, setBooting] = useState(Boolean(stored.token));
   const [theme, setTheme] = useState(initialTheme);
-  const [page, setPage] = useState(() => isPortfolioUrl() ? 'portfolio' : 'landing');
-  const [authMode, setAuthMode] = useState('login');
+  const [page, setPage] = useState(() => isPortfolioUrl() ? 'portfolio' : isInviteUrl() ? 'auth' : 'landing');
+  const [authMode, setAuthMode] = useState(() => isInviteUrl() ? 'register' : 'login');
   const [selectedExam, setSelectedExam] = useState(null);
   const [joined, setJoined] = useState(null);
   const [paper, setPaper] = useState(null);
@@ -83,6 +100,11 @@ export default function App() {
     localStorage.setItem('emtehani-theme', theme);
   }, [theme]);
 
+  // Progressive enhancement: register public, read-only site tools only when
+  // the browser exposes WebMCP. Unsupported browsers and private data are
+  // unaffected; backend authorization remains authoritative.
+  useEffect(() => installWebMcpTools(), []);
+
   useEffect(() => {
     function onSessionExpired() {
       clearAuth();
@@ -93,7 +115,7 @@ export default function App() {
       setPaper(null);
       setReviewId('');
       setAuthMode('login');
-      setAuthNotice('انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى للمتابعة.');
+      setAuthNotice('انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى للمتابعة؛ إجاباتك المحفوظة لن تُفقد وسيُستأنف الامتحان تلقائياً.');
       setPage((current) => current === 'portfolio' ? current : 'auth');
     }
     window.addEventListener('emtehani:session-expired', onSessionExpired);
@@ -106,10 +128,18 @@ export default function App() {
     request('/api/auth/me', { token: stored.token })
       .then((me) => {
         if (!active) return;
-        const nextUser = { ...stored.user, ...me };
+        const nextUser = { ...stored.user, ...authUserFromResponse(me), ...me };
+        const latest = getStoredAuth();
         setUser(nextUser);
-        storeAuth(stored.token, nextUser);
-        setPage((current) => current === 'portfolio' ? current : 'dashboard');
+        setToken(latest.token || stored.token);
+        storeAuth(latest.token || stored.token, nextUser);
+        storeSession(me.sessionExpiresAtUtc, me.serverUtc);
+        setPage((current) => {
+          if (current === 'portfolio') return current;
+          return nextUser.role === 'Teacher' && nextUser.subscriptionStatus !== 'Confirmed'
+            ? 'subscription'
+            : 'dashboard';
+        });
       })
       .catch((err) => {
         if (!active) return;
@@ -145,7 +175,7 @@ export default function App() {
     document.title = page === 'portfolio'
       ? 'Ahmed Gbreel · Full Stack Developer'
       : user
-        ? `${user.role === 'Teacher' ? 'مركز التحكم' : 'مساحة الطالب'} · امتحاني`
+        ? `${user.role === 'Admin' ? 'لوحة الإدارة' : user.role === 'Teacher' ? 'مركز التحكم' : 'مساحة الطالب'} · امتحاني`
         : 'امتحاني · منصة امتحانات عربية';
   }, [page, user]);
 
@@ -155,19 +185,47 @@ export default function App() {
       body: JSON.stringify(mode === 'login' ? { email: payload.email, password: payload.password } : payload),
     });
     if (mode === 'register') {
+      // The account is created by the register call (which deliberately does not return a
+      // session). When the account is already active, sign in immediately so a teacher can
+      // choose the Free package right away. If e-mail verification is required, fall back
+      // to the normal "check your inbox" flow.
+      if (payload.role === 'Teacher') {
+        try {
+          const login = await request('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email: payload.email.trim(), password: payload.password }),
+          });
+          const nextUser = authUserFromResponse(login);
+          storeAuth(login.token, nextUser, login.refreshToken);
+          storeSession(login.sessionExpiresAtUtc, login.serverUtc);
+          setToken(login.token);
+          setUser(nextUser);
+          setAuthNotice('');
+          setAuthMode('login');
+          setPage('subscription');
+          return { registered: true, autoLoggedIn: true, message: data.message, studentCode: data.studentCode };
+        } catch {
+          // Verification is required or auto-login is unavailable; keep the notice path.
+        }
+      }
       return { registered: true, message: data.message, studentCode: data.studentCode };
     }
-    const nextUser = { fullName: data.fullName, email: data.email, role: data.role, studentCode: data.studentCode || '', stage: data.stage || '', grade: data.grade || '' };
-    storeAuth(data.token, nextUser);
+    const nextUser = authUserFromResponse(data);
+    storeAuth(data.token, nextUser, data.refreshToken);
+    storeSession(data.sessionExpiresAtUtc, data.serverUtc);
     setToken(data.token);
     setUser(nextUser);
     setAuthNotice('');
-    setPage('dashboard');
+    setPage(nextUser.role === 'Teacher' && nextUser.subscriptionStatus !== 'Confirmed' ? 'subscription' : 'dashboard');
     setAuthMode('login');
     return { registered: false };
   }
 
   function logout() {
+    try {
+      const refreshToken = localStorage.getItem('emtehani-refresh-token');
+      if (refreshToken) request('/api/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(() => {});
+    } catch { /* best-effort revocation */ }
     clearAuth();
     setToken('');
     setUser(null);
@@ -200,6 +258,11 @@ export default function App() {
 
   function navigate(next) {
     if (next === 'portfolio') { openPortfolio(); return; }
+    if (user?.role === 'Teacher' && user?.subscriptionStatus !== 'Confirmed' && next !== 'subscription') {
+      setPage('subscription');
+      return;
+    }
+    if ((next === 'admin' || next === 'admin-teachers') && user?.role !== 'Admin') { setPage('dashboard'); return; }
     if (next === 'exam-detail' && !selectedExam) { setPage('exams'); return; }
     if (next === 'lobby' && !joined) { setPage('dashboard'); return; }
     if (next === 'take' && !paper) { setPage('dashboard'); return; }
@@ -209,6 +272,18 @@ export default function App() {
   function updateEducation(profile) {
     setUser((current) => {
       const next = { ...current, ...profile };
+      storeAuth(token, next);
+      return next;
+    });
+  }
+
+  function updateSubscription(result) {
+    setUser((current) => {
+      const next = {
+        ...current,
+        subscriptionStatus: result?.status || 'Confirmed',
+        subscriptionPlan: result?.planCode || current?.subscriptionPlan || 'free',
+      };
       storeAuth(token, next);
       return next;
     });
@@ -315,6 +390,7 @@ export default function App() {
         <header className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Logo />
           <div className="flex items-center gap-2">
+            <div className="hidden sm:block"><SessionCountdown compact /></div>
             <span className="hidden text-[11px] text-muted sm:inline">{user.fullName}</span>
             <Button variant="ghost" size="xs" icon={LogOut} onClick={logout}>خروج</Button>
           </div>
@@ -327,11 +403,20 @@ export default function App() {
   }
 
   const isTeacher = user.role === 'Teacher';
-  const title = (isTeacher ? teacherTitles : studentTitles)[page] || 'امتحاني';
-  const activePage = activePages[page] || page;
+  const isAdmin = user.role === 'Admin';
+  const teacherPending = isTeacher && user.subscriptionStatus !== 'Confirmed';
+  const effectivePage = teacherPending ? 'subscription' : page;
+  const title = (isAdmin ? adminTitles : isTeacher ? teacherTitles : studentTitles)[effectivePage] || 'امتحاني';
+  const activePage = activePages[effectivePage] || effectivePage;
 
   let content;
-  if (page === 'dashboard') {
+  if (teacherPending) {
+    content = <SubscriptionPage token={token} onConfirmed={updateSubscription} />;
+  } else if (isAdmin) {
+    content = page === 'admin' || page === 'admin-teachers' || page === 'dashboard'
+      ? <AdminDashboard token={token} />
+      : <AdminDashboard token={token} />;
+  } else if (page === 'dashboard') {
     content = isTeacher
       ? <TeacherDashboard token={token} user={user} onNavigate={navigate} onCreate={() => setPage('create')} onOpenExam={openExam} />
       : <StudentDashboard token={token} user={user} onBrowse={() => setPage('available')} onEnter={joinedExam} onViewResults={() => setPage('results')} onOpenReview={(id) => openReview(id, 'dashboard')} onProfileUpdated={updateEducation} />;
@@ -353,6 +438,10 @@ export default function App() {
     content = <TeacherStudentsPage token={token} />;
   } else if (page === 'teachers' && !isTeacher) {
     content = <TeachersPage token={token} />;
+  } else if (page === 'profile' && !isTeacher) {
+    content = <StudentProfilePage token={token} onProfileUpdated={updateEducation} />;
+  } else if (page === 'subscription' && isTeacher) {
+    content = <SubscriptionPage token={token} onConfirmed={updateSubscription} />;
   } else if (page === 'audit') {
     content = <AuditPage token={token} />;
   } else if (page === 'review' && reviewId) {
@@ -366,9 +455,9 @@ export default function App() {
   }
 
   return (
-    <AppShell user={user} page={page} activePage={activePage} title={title} onNavigate={navigate} onLogout={logout} theme={theme} onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>
+    <AppShell user={user} page={effectivePage} activePage={activePage} title={title} onNavigate={navigate} onLogout={logout} theme={theme} onToggleTheme={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>
       <AnimatePresence mode="wait">
-        <motion.div key={page} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div key={effectivePage} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
           {content}
         </motion.div>
       </AnimatePresence>

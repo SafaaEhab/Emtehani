@@ -11,6 +11,10 @@ export function uniqueSuffix() {
   return randomUUID().slice(0, 8);
 }
 
+export function uniquePhone() {
+  return `01${Math.floor(100000000 + Math.random() * 899999999)}`;
+}
+
 async function requestApi(request, method, path, token, data) {
   return request.fetch(`${API_URL}${path}`, {
     method,
@@ -39,18 +43,34 @@ export async function registerAndLogin(request, role, namePrefix, education = {}
     email: `${role.toLowerCase()}-${suffix}@example.com`,
     password: PASSWORD,
     role,
-    ...(role === 'Student'
-      ? {
-          stage: education.stage || DEFAULT_STAGE,
-          grade: education.grade || DEFAULT_GRADE,
-        }
-      : {}),
   };
+  if (role === 'Student') {
+    // Student registration requires at least one selected teacher. Tests that need a
+    // specific teacher pass teacherIds; otherwise a dedicated host teacher is created.
+    let teacherIds = education.teacherIds;
+    if (!teacherIds?.length) {
+      const host = education.teacher || await registerAndLogin(request, 'Teacher', 'مدرس استضافة التسجيل');
+      teacherIds = [host.id];
+    }
+    Object.assign(account, {
+      stage: education.stage || DEFAULT_STAGE,
+      grade: education.grade || DEFAULT_GRADE,
+      studentPhone: education.studentPhone || uniquePhone(),
+      parentPhone: education.parentPhone || uniquePhone(),
+      teacherCount: education.teacherCount ?? teacherIds.length,
+      teacherIds,
+    });
+  }
   await apiJson(request, 'POST', '/api/auth/register', null, account);
   const login = await apiJson(request, 'POST', '/api/auth/login', null, {
     email: account.email,
     password: account.password,
   });
+  if (role === 'Teacher' && education.confirmSubscription !== false) {
+    await apiJson(request, 'POST', '/api/teacher/subscription', login.token, { planCode: 'free' });
+    login.subscriptionStatus = 'Confirmed';
+    login.subscriptionPlan = 'free';
+  }
   const me = await apiJson(request, 'GET', '/api/auth/me', login.token);
   return { ...account, ...login, id: me.id };
 }
@@ -73,11 +93,13 @@ export async function uiLogin(page, account) {
 }
 
 export async function openAppNav(page, label) {
-  let target = page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
-  if (!await target.count()) {
-    const menu = page.getByRole('button', { name: 'فتح القائمة' });
+  const target = page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
+  const menu = page.getByRole('button', { name: 'فتح القائمة' });
+  // Wait for the authenticated shell to mount before deciding whether the sidebar is
+  // already visible (desktop) or needs the mobile drawer to be opened.
+  await menu.or(target).first().waitFor({ state: 'visible', timeout: 30_000 });
+  if (!(await target.isVisible())) {
     if (await menu.isVisible()) await menu.click();
-    target = page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
   }
   await target.click();
 }
@@ -91,6 +113,7 @@ export async function createExam(request, token, options = {}) {
     durationMinutes: options.durationMinutes || 30,
     maxAttempts: 1,
     allowResumeAfterFocusLoss: true,
+    resultsReleaseMode: options.resultsReleaseMode || null,
     stage: options.stage || DEFAULT_STAGE,
     grade: options.grade || DEFAULT_GRADE,
     questions: options.questions || [
@@ -112,10 +135,19 @@ export async function openExam(request, teacherToken, examId) {
 }
 
 export async function enrollStudent(request, teacher, student) {
-  await apiJson(request, 'POST', `/api/teachers/${teacher.id}/request`, student.token);
+  const response = await apiResponse(request, 'POST', `/api/teachers/${teacher.id}/request`, student.token);
+  // Students registered with this teacher already have a pending request; reuse it
+  // instead of creating a duplicate (the backend correctly rejects duplicates).
+  if (!response.ok() && response.status() !== 409) {
+    throw new Error(`POST /api/teachers/${teacher.id}/request failed: ${response.status()} ${await response.text()}`);
+  }
   const rows = await apiJson(request, 'GET', '/api/teacher/requests', teacher.token);
   const row = rows.find((item) => item.studentEmail === student.email && item.status === 'Pending');
-  if (!row) throw new Error(`Pending enrollment request not found for ${student.email}`);
+  if (!row) {
+    const students = await apiJson(request, 'GET', '/api/teacher/students', teacher.token);
+    if (students.items.some((item) => item.studentId === student.id)) return;
+    throw new Error(`Pending enrollment request not found for ${student.email}`);
+  }
   await apiJson(request, 'PUT', `/api/teacher/requests/${row.id}`, teacher.token, { action: 'accept' });
 }
 

@@ -5,8 +5,9 @@ public static class EducationCatalog
     public const string Primary = "ابتدائي";
     public const string Preparatory = "إعدادي";
     public const string Secondary = "ثانوي";
+    public const string Baccalaureate = "البكالوريا";
 
-    public static readonly IReadOnlyList<string> Stages = [Primary, Preparatory, Secondary];
+    public static readonly IReadOnlyList<string> Stages = [Primary, Preparatory, Secondary, Baccalaureate];
 
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> GradesByStage =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
@@ -31,6 +32,11 @@ public static class EducationCatalog
                 "الصف الأول الثانوي",
                 "الصف الثاني الثانوي",
                 "الصف الثالث الثانوي"
+            ],
+            [Baccalaureate] =
+            [
+                "أولى بكالوريا",
+                "تانية بكالوريا"
             ]
         };
 

@@ -8,7 +8,9 @@
   "build": "vite build",
   "preview": "vite preview --host 0.0.0.0",
   "test:e2e": "playwright test",
-  "test:e2e:ui": "playwright test --ui"
+  "test:e2e:ui": "playwright test --ui",
+  "test:unit": "node --test test/format.test.js test/timer.test.js test/session.test.js test/agent-readiness.test.js",
+  "test:agent-readiness": "node scripts/verify-agent-readiness.mjs"
  },
  "dependencies": {
   "@fontsource-variable/cairo": "^5.3.0",
