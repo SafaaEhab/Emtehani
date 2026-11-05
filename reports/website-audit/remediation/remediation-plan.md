@@ -3,7 +3,7 @@
 **Branch:** `remediation/website-audit-2026-11-05`
 **Base commit:** `9c8bcdc`
 **Date:** 2026-11-05
-**Deployment status:** **NOT DEPLOYED** — awaiting explicit approval.
+**Deployment status:** **DEPLOYED AND VERIFIED** on 2026-11-05. See `final-production-deployment.md`.
 
 **Legend:** ✅ fixed & tested · 🟡 fixed, deployment/approval required · ⏸ accepted/documented · ⛔ blocked by external access.
 
@@ -106,13 +106,12 @@
 - [x] Live SQL Server disposable flow: registration → accept → exam → submit → close → attempts/audit/lookup.
 - [x] XFF spoof regression: 429 observed.
 - [ ] Existing Playwright E2E suite: blocked (no isolated PostgreSQL 17; documented).
-- [ ] Production deployment verification: pending approval.
+- [x] Production deployment and post-deploy verification: **43 / 43 checks passed** on 2026-11-05; see `final-production-deployment.md`.
 
-## 6. Remaining external blockers
+## 6. Remaining external limitations after deployment
 
-1. **MonsterASP deployment credentials** (FTP/WebDeploy/control panel) are not available in this environment. Publish artifact and exact deployment steps are prepared.
-2. **Production deployment** is prohibited without explicit approval.
-3. **Production schema indexes** are prepared but not applied; backend startup will apply them idempotently after approval.
-4. **Admin UI** remains unverified (no admin account/bootstrap credentials).
-5. **Full Playwright E2E** requires an isolated PostgreSQL 17 database.
-6. **Monster proxy IPs** are unknown; `X-Forwarded-For` remains untrusted by default. Per-account lockout still protects logins, but per-IP limits may share the proxy address until real proxy IPs/CIDRs are configured.
+1. **Full Playwright E2E** requires an isolated PostgreSQL 17 database; it was not run in that configuration. Production API/browser regression was used instead.
+2. **Admin write actions** were intentionally not exercised. Admin read APIs and the Admin UI were verified with a temporary disposable account that was deleted.
+3. **Monster proxy IPs** are unknown; `X-Forwarded-For` remains untrusted by default. Per-IP auth limits were verified (429 on request 61).
+4. **Login lockout is process-local**; scale-out would require a distributed store.
+5. The deployment commit `0786c06` is local; the Vercel project is not Git-connected, so the release was deployed from the verified local build.

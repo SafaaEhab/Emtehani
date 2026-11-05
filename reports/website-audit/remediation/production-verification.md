@@ -1,6 +1,8 @@
 # Production Verification
 
-**Status: NOT DEPLOYED. Post-deployment verification has not been performed.**
+**Status: DEPLOYED AND VERIFIED on 2026-11-05. See `final-production-deployment.md` for the authoritative post-deployment results.**
+
+> This document retains the original pre-deployment checklist for historical context. Its unchecked boxes are superseded by the completed production regression and deployment evidence in `final-production-deployment.md` and `evidence/production-deployment-2026-11-05.txt`.
 
 This document distinguishes verified read-only production facts from pending post-deploy checks. No claim is made that the remediation is live.
 
@@ -32,7 +34,7 @@ Evidence: `evidence/production-discovery.txt`.
 
 ---
 
-## 2. Post-deployment verification (pending approval)
+## 2. Post-deployment verification (completed — see final report)
 
 ### Availability
 - [ ] Vercel production returns 200; no deployment error.

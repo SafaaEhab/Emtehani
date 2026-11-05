@@ -1,7 +1,9 @@
 # Fixed Issues
 
 Every item below was a confirmed audit finding. No additional bugs were invented.
-**Deployment status:** code and tests complete; production deploy is **not executed** and awaits approval.
+**Deployment status:** code and tests complete; **deployed and verified in production on 2026-11-05**. See `final-production-deployment.md`.
+
+> Per-item "pending production verification" notes below are historical and superseded by the completed production regression in `final-production-deployment.md`.
 
 ---
 

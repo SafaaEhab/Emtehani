@@ -122,4 +122,4 @@ Evidence: `evidence/live-sqlserver-verification.txt`, `evidence/xff-rate-limit-a
   - `RateLimiting__LookupPermitLimit=12`
   - `Database__BootstrapOnStartup=true` for the index rollout; set false only after verification.
 - Startup will create five additive indexes. No table/row is modified.
-- **No backend deployment was performed.** Awaiting approval and credentials.
+- **Backend deployed to MonsterASP on 2026-11-05.** See `final-production-deployment.md` for verification.

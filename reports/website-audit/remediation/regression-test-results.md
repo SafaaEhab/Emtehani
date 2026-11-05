@@ -4,6 +4,7 @@
 **Branch:** `remediation/website-audit-2026-11-05`
 **Baseline:** 73 passed / 5 skipped / 0 failed (backend).
 **Final backend:** **79 passed / 5 skipped / 0 failed** (84 total; +6 regression tests).
+**Production regression (2026-11-05):** **43 / 43 checks passed**; see `final-production-deployment.md` and `evidence/production-regression-2026-11-05.json`.
 
 ---
 
@@ -118,8 +119,8 @@ Evidence: `evidence/lighthouse-local-landing-final.*`, `evidence/lighthouse-loca
 |---|---|---|
 | Existing Playwright E2E (`npm run test:e2e`) | Requires isolated PostgreSQL 17 (`E2E_DATABASE_CONNECTION`) and starts API/frontend on 5099/4173; no PostgreSQL instance available | **BLOCKED** |
 | PostgreSQL schema tests | No isolated PostgreSQL | **SKIPPED (5)** |
-| Production deployment smoke test | No deployment approval; Monster deployment credentials unavailable | **PENDING** |
-| Admin UI regression | No admin account/bootstrap credentials | **BLOCKED** |
+| Production deployment smoke test | Deployed and verified 2026-11-05; 43/43 checks passed | **PASS** (see `final-production-deployment.md`) |
+| Admin UI regression | Verified read-only with a temporary disposable Admin account (deleted after) | **PASS (read-only)** |
 | Live timer expiry / concurrent autosave-submit / ban-suspend | Existing backend integration tests cover these; not rerun as live timed scenarios | **NOT RUN LIVE** |
 | Full performance benchmark | No controlled throttled Lighthouse performance score; no load test | **NOT RUN** |
 

@@ -88,4 +88,4 @@ Evidence: `evidence/lighthouse-local-*-final.*`, `evidence/mobile-menu-fixed.png
 - Deploy `frontend/vercel.json` with the build so the CSP and Link headers are updated atomically.
 - Do not deploy with a localhost or legacy Vercel API URL; the build guard will fail for CSP mismatch.
 - No secrets were added to the frontend.
-- **No Vercel deployment was performed.** Awaiting approval.
+- **Frontend deployed to Vercel on 2026-11-05.** See `final-production-deployment.md` for verification.

@@ -1,0 +1,123 @@
+# Production Deployment Evidence — 2026-11-05
+
+This file contains sanitized deployment facts. No credentials, connection strings, JWT keys, cookies, or session data are included.
+
+## Targets verified
+
+| Item | Verified value |
+|---|---|
+| MonsterASP account | Ahmed Gbreel / ahmedgbreel47@gmail.com; Customer ID 19681; Verified |
+| Website | `emtehani.runasp.net`; site ID `site102923`; GUID `c44aa1b7-d11c-494d-92fb-6fa73c1167b9`; .NET 10 / IIS |
+| Database | `db73841` / `db73841.databaseasp.netEmtehani`; GUID `1ad21590-fa56-4767-89fa-9e7f0f4b4097`; SQL Server 2025 |
+| Vercel project | `emtehani`; project ID `prj_4rN9XCkAxub4WWdhktMUfS7pSr8r`; team `safaas-projects-216f1299` |
+| Vercel account email | `safaaehab012345@gmail.com` (Verified primary) |
+
+## Backup and recovery points
+
+- Database backup: `db73841_custom_05.11.2026_639294985474398020.bak`
+- Backup size: 9 MB
+- Backup status: Done / Completed; restore action available
+- Site rollback archive: `wwwroot.zip` at site root, 35.7 MB, 74 files
+- Original production `appsettings.json` preserved in the site backup and restored after publish. Presence checks only: connection string length 170, JWT key present, SMTP username present.
+
+## Backend integrity
+
+Deployed files compared against the local Release publish artifact by SHA-256:
+
+| Assembly | SHA-256 | Match |
+|---|---|---|
+| Emtehani.API.dll | `6352240599200EE2EAFBADA54564B16904E5C269A0825DD1FDC9169A632C5BA6` | Yes |
+| Emtehani.Infrastructure.dll | `3825529B48844C21ACE8BD2656C1136610E5FF6EA12B2617A874FE0C5E5F043D` | Yes |
+| Emtehani.Domain.dll | `992C541915D52CDA0E288BC95E0B3B8ECFD95586552546BEBAD95D065921EABB` | Yes |
+| Emtehani.Application.dll | `E4D3EA67B21A171785F22CECD60507FB86BA81793C2163A8B437DBDDBDF9D5A5` | Yes |
+
+Runtime checks:
+
+- `GET https://emtehani.runasp.net/health` → **200 Healthy**
+- `GET https://emtehani.runasp.net/api` → **200** `{"service":"Emtehani API","version":"1.0"}`
+- Unauthenticated protected endpoints → **401**
+- Swagger UI in production → **404** (disabled)
+- CORS preflight from `https://emtehani.vercel.app` → allowed; unknown origin not allowed
+
+## Database indexes
+
+All five reviewed additive indexes exist in production:
+
+- `IX_AuditEvents_ActorId_AtUtc`
+- `IX_Exams_TeacherId_Published`
+- `IX_Submissions_ExamId`
+- `IX_Submissions_StudentId_ExamId`
+- `IX_TeacherStudentRequests_TeacherId_Unlinked`
+
+## Data preservation
+
+Baseline before the production workflow, and final state after disposable test cleanup:
+
+| Table | Baseline | Final |
+|---|---:|---:|
+| Users | 29 | 29 |
+| Exams | 4 | 4 |
+| Submissions | 12 | 12 |
+| Answers | 255 | 255 |
+| Questions | 31 | 31 |
+| ExamParticipants | 11 | 11 |
+| TeacherStudentRequests | 16 | 16 |
+| TeacherSubscriptions | 6 | 6 |
+| AuditEvents | 118 | 118 |
+
+No real account, exam, submission, answer, request, subscription, or audit event was modified or removed. Only rows created by disposable test accounts were deleted.
+
+## Frontend deployment
+
+- Deployment ID: `dpl_FLpEdBAw5DqDWqiuiDU5maWBTCdR`
+- Deployment URL: `https://emtehani-gh585vuq1-safaas-projects-216f1299.vercel.app`
+- Production URL: `https://emtehani.vercel.app`
+- Status: **READY**
+- Environment: production
+- Served entry bundle: `/assets/index-CHDVhvvL.js`, 468,367 bytes
+- Bundle check: contains `emtehani.runasp.net`; does **not** contain `emtehani-api.vercel.app`
+- CSP `connect-src`: only `'self' https://emtehani.runasp.net`
+- Other headers present: HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, Permissions-Policy, COOP
+- Vercel root directory restored to `frontend`; `requireVerifiedCommits` restored to `true`; accidental `vercel-prebuilt2` project deleted
+
+## Production regression
+
+- Result: **43 / 43 checks passed**
+- Evidence: `production-regression-2026-11-05.json`
+- Covered: teacher free-plan confirmation; exam create/publish/open; student discovery/enter/start/paper/autosave/submit; extra-attempt conflict 409; teacher results; essay review and grading; exam close; results publication; student result visibility; CSV export; student-detail attempt aggregate; audit event visibility; linked/unrelated phone lookup masking; student/teacher/admin authorization boundaries; refresh-token rotation and reuse rejection; registration validation; CORS and disabled Swagger.
+
+Rate-limit / forwarded-header probe:
+
+- 61 login requests with unique spoofed `X-Forwarded-For` values
+- Responses: 60 × HTTP 401, then **HTTP 429 on request 61**
+- Conclusion: forwarded headers are not trusted for rate-limit partitioning
+
+Browser verification:
+
+- Landing, teacher login/dashboard, student login/results, registration validation, and Admin dashboard all rendered.
+- Console messages: 0 errors, 0 warnings.
+- API traffic observed only to `https://emtehani.runasp.net`; no requests to the legacy API.
+- Responsive widths 390, 768, 1366, and 1920: no horizontal overflow; `h1` visible.
+- Registration UI exposed `البكالوريا` with `أولى بكالوريا` and `تانية بكالوريا`; three-part student name produced the expected validation alert.
+
+Admin read-only verification:
+
+- Temporary disposable account promoted to `Admin` only for read-only checks.
+- `GET /api/admin/overview?page=1&pageSize=10` → 200 (6 teachers, 6 rows)
+- `GET /api/admin/subscription-settings` → 200
+- Admin UI title `لوحة الإدارة` with overview, teacher/subscription table, and settings key.
+- Temporary Admin account deleted immediately; counts and audit log returned to baseline.
+
+## Deployment incident and recovery
+
+- After extracting the backend publish ZIP, the repository-template `appsettings.json` replaced the production settings file and the site returned HTTP 500.
+- The original production `appsettings.json` was restored from the verified `wwwroot.zip` site backup and the app pool was restarted.
+- Health returned **200 Healthy**; DLL hashes and settings presence were re-verified.
+- Monster event log: the last application errors are from the initial 19:44 deployment attempt; no new application errors occurred after recovery (last application start 21:15). No production data was lost.
+
+## Remaining limitations
+
+- The existing Playwright E2E suite was not run against an isolated PostgreSQL 17 environment; production API/browser regression was used instead.
+- Admin write actions (for example, changing free-plan features) were not performed, to avoid altering production configuration. Admin reads and UI were verified.
+- `X-Forwarded-For` is intentionally ignored until verified Monster proxy IPs/CIDRs are configured.
+- `LoginThrottle` is process-local; a scale-out deployment would need a distributed store.

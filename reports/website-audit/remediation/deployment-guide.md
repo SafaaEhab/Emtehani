@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**This remediation has NOT been deployed.** Do not deploy until the approval and change window are explicit.
+**Deployment completed on 2026-11-05. See `final-production-deployment.md` for execution evidence and verification results.** This guide is retained as the reproducible procedure and rollback reference.
 
 ---
 
@@ -127,7 +127,7 @@ Use the Vercel dashboard (project `emtehani`) or:
 vercel --prod --cwd frontend
 ```
 
-**Do not run the deploy command without approval.** The CLI is authenticated as `safaaehab`, but the deployment is intentionally not executed.
+The CLI was authenticated as `safaaehab` for the completed 2026-11-05 production deployment. The release was built and verified locally before upload; see `final-production-deployment.md`.
 
 - Confirm `frontend/vercel.json` is part of the deployment (CSP + rewrites + Link headers).
 - Verify the generated JS contains `emtehani.runasp.net` and not `emtehani-api.vercel.app`.

@@ -3,6 +3,8 @@
 **Date:** 2026-11-05
 **Authority hierarchy:** MonsterASP API + Monster SQL Server are the production source of truth.
 
+> **Post-deployment note:** this is the pre-deployment discovery snapshot. Backup, index application, and deployment were completed later on 2026-11-05; see `final-production-deployment.md`.
+
 ---
 
 ## 1. Frontend

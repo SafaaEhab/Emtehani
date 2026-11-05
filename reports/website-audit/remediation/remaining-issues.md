@@ -1,43 +1,41 @@
 # Remaining Issues & Accepted Decisions
 
+> **Post-deployment update (2026-11-05):** Production deployment, post-deploy verification, admin UI/read-only checks, and the five database indexes are complete. See `final-production-deployment.md`. Items 1, 2, 3, and 5 below are retained as historical blockers only. Still open: the isolated PostgreSQL 17 Playwright suite, verified proxy IP/CIDR configuration, and moving process-local login lockout to a distributed store.
+
 These are the items that remain open, blocked, or deliberately accepted after the remediation. No confirmed remediation item is silently omitted.
 
 ---
 
-## Blocked by external access/approval
+## Resolved by the 2026-11-05 deployment
 
-### 1. Production deployment — **BLOCKED**
-- No explicit deployment approval.
-- No MonsterASP FTP/WebDeploy/control-panel credentials in this environment.
-- The backend publish artifact and deployment steps are ready; the actual upload is not.
-- Frontend Vercel CLI is authenticated but **no deploy command was executed**.
-- **Action required:** provide Monster deployment access and approve the change window.
+### 1. Production deployment — **COMPLETE**
+- Backend deployed to the verified MonsterASP site; frontend deployed to Vercel production.
+- Release DLL hashes match the local publish artifact.
+- See `final-production-deployment.md`.
 
-### 2. Production post-deploy verification — **PENDING**
-- All production checks in `production-verification.md` after the deploy are pending.
-- Only read-only pre-deploy checks were performed.
-- Do not treat the local/LocalDB results as production verification.
+### 2. Production post-deploy verification — **COMPLETE**
+- 43/43 production checks passed.
+- Evidence: `evidence/production-regression-2026-11-05.json`.
 
-### 3. Admin UI/roles — **BLOCKED**
-- No admin account or bootstrap credentials.
-- Admin APIs correctly returned 403 for teacher/student in the audit.
-- **Action required:** create an admin via the documented `Admin__BootstrapEmail`/`Admin__BootstrapPassword` flow in a controlled environment, then run role/settings tests.
+### 3. Admin UI/roles — **VERIFIED READ-ONLY**
+- A temporary disposable Admin account was used to verify `/api/admin/overview`, `/api/admin/subscription-settings`, and the Admin UI.
+- The account was deleted immediately; production counts returned to baseline.
+- Admin write actions were intentionally not exercised.
 
 ### 4. Full Playwright E2E suite — **BLOCKED**
 - Requires isolated PostgreSQL 17 (`E2E_DATABASE_CONNECTION`) and ports 5099/4173.
 - No PostgreSQL instance was available.
-- Backend integration tests and manual Playwright browser checks were used instead.
+- Backend integration tests and live production Playwright browser checks were used instead.
 - **Action required:** provide an isolated PostgreSQL 17 database; run `npm run test:e2e`.
 
 ---
 
 ## Deployment / operations follow-ups
 
-### 5. Production database indexes not applied — **PENDING APPROVAL**
-- The five indexes are in `ExamWorkflowSchema` and in `docs/sql/2026-11-remediation-indexes.sql`.
-- They are validated on disposable SQL Server databases but not applied to `db73841`.
-- Startup will apply them on the next approved backend deploy.
-- Pre-deploy backup/restore verification is still required.
+### 5. Production database indexes — **APPLIED**
+- All five indexes are present in `db73841`.
+- They are defined idempotently in `ExamWorkflowSchema` and documented in `docs/sql/2026-11-remediation-indexes.sql`.
+- Pre-deployment database backup is verified and retained.
 
 ### 6. Real Monster proxy IPs unknown
 - `X-Forwarded-For` is now ignored by default.
@@ -119,8 +117,8 @@ These are the items that remain open, blocked, or deliberately accepted after th
 | Frontend build + CSP guard | Pass |
 | SQL Server fresh-DB flow | Pass (disposable) |
 | Accessibility/SEO Lighthouse | 100 / 100 / 100 local |
-| Production deployment | **Not performed** |
-| Production post-deploy checks | **Pending** |
-| Production DB indexes | **Not applied** |
-| Admin UI | **Blocked** |
-| Full Playwright E2E | **Blocked** |
+| Production deployment | **Complete (2026-11-05)** |
+| Production post-deploy checks | **43 / 43 passed** |
+| Production DB indexes | **Applied and present** |
+| Admin UI | **Verified read-only** |
+| Full Playwright E2E | **Blocked** (needs isolated PostgreSQL 17) |

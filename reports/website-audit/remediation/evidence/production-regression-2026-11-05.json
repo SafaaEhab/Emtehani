@@ -1,0 +1,224 @@
+{
+  "date": "2026-11-05",
+  "target": "https://emtehani.runasp.net",
+  "result": "43/43 checks passed",
+  "startedAtUtc": "2026-11-05T20:27:32.252Z",
+  "finishedAtUtc": "2026-11-05T20:27:36.582Z",
+  "checks": [
+    {
+      "name": "health endpoint 200 Healthy",
+      "pass": true,
+      "detail": "200 Healthy"
+    },
+    {
+      "name": "api metadata 200",
+      "pass": true,
+      "detail": "200 {\"service\":\"Emtehani API\",\"version\":\"1.0\"}"
+    },
+    {
+      "name": "unauthenticated protected endpoint is 401",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "name": "invalid token is 401",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "name": "swagger disabled in production",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "name": "CORS preflight allows production frontend",
+      "pass": true,
+      "detail": "204 https://emtehani.vercel.app"
+    },
+    {
+      "name": "CORS rejects unknown origin",
+      "pass": true,
+      "detail": "204 null"
+    },
+    {
+      "name": "teacher free subscription confirmed",
+      "pass": true,
+      "detail": "200 free/Confirmed"
+    },
+    {
+      "name": "teacher creates exam",
+      "pass": true,
+      "detail": "201 {\"id\":\"f95b5333-8c15-45b1-9f2a-1f70002d4e6f\",\"title\":\"اختبار الإنتاج 1793910453468\",\"description\":\"اختبار تحقق إنتاجي مؤ"
+    },
+    {
+      "name": "teacher publishes exam",
+      "pass": true,
+      "detail": "200 {\"id\":\"f95b5333-8c15-45b1-9f2a-1f70002d4e6f\",\"isPublished\":true,\"status\":\"Waiting\",\"joinCode\":\"91964"
+    },
+    {
+      "name": "teacher opens exam",
+      "pass": true,
+      "detail": "200 Active"
+    },
+    {
+      "name": "student sees published exam",
+      "pass": true,
+      "detail": "200 items=1"
+    },
+    {
+      "name": "student enters exam lobby",
+      "pass": true,
+      "detail": "200 Waiting"
+    },
+    {
+      "name": "student starts attempt",
+      "pass": true,
+      "detail": "200 {\"id\":\"7552bb9d-6f84-406a-a6f5-b2016cbad1b0\",\"startedAtUtc\":\"2026-11-05T20:27:34.0249180Z\",\"duration"
+    },
+    {
+      "name": "student receives paper",
+      "pass": true,
+      "detail": "200 q=2"
+    },
+    {
+      "name": "paper does not expose answer keys",
+      "pass": true,
+      "detail": "{\"examId\":\"f95b5333-8c15-45b1-9f2a-1f70002d4e6f\",\"examTitle\":\"اختبار الإنتاج 179"
+    },
+    {
+      "name": "student autosaves answers",
+      "pass": true,
+      "detail": "200 2"
+    },
+    {
+      "name": "student submits attempt",
+      "pass": true,
+      "detail": "200 NeedsReview"
+    },
+    {
+      "name": "extra attempt on finished attempt is 409",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "name": "teacher sees submission result",
+      "pass": true,
+      "detail": "200 total=1"
+    },
+    {
+      "name": "teacher review returns essay answer",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "name": "teacher grades essay",
+      "pass": true,
+      "detail": "200 3/3 Reviewed"
+    },
+    {
+      "name": "teacher closes exam",
+      "pass": true,
+      "detail": "200 Finished"
+    },
+    {
+      "name": "teacher publishes results",
+      "pass": true,
+      "detail": "200 false"
+    },
+    {
+      "name": "student receives published result",
+      "pass": true,
+      "detail": "200 3/3 visible=true"
+    },
+    {
+      "name": "teacher exports results CSV",
+      "pass": true,
+      "detail": "200 text/csv; charset=utf-8"
+    },
+    {
+      "name": "teacher student detail shows used/completed/remaining",
+      "pass": true,
+      "detail": "{\"allowed\":1,\"used\":1,\"completed\":1,\"remaining\":0,\"inProgress\":0,\"abandoned\":0,\"exceptionUsed\":0,\"total\":1}"
+    },
+    {
+      "name": "audit log records student submission",
+      "pass": true,
+      "detail": "200 total=27"
+    },
+    {
+      "name": "linked teacher sees unmasked student",
+      "pass": true,
+      "detail": "{\"studentId\":\"38dae648-238c-45fe-951d-868ab22cfbf6\",\"fullName\":\"طالب اختبار الإنتاج الأول\",\"masked\":false,\"stage\":\"البكالوريا\",\"grade\":\"أولى بكالوريا\",\"requestStatus\":\"Accepted\"}"
+    },
+    {
+      "name": "unrelated teacher has an active plan for lookup",
+      "pass": true,
+      "detail": "200 Confirmed"
+    },
+    {
+      "name": "unrelated teacher sees masked student",
+      "pass": true,
+      "detail": "{\"studentId\":\"38dae648-238c-45fe-951d-868ab22cfbf6\",\"fullName\":\"طالب ا…\",\"masked\":true,\"stage\":null,\"grade\":null,\"requestStatus\":null}"
+    },
+    {
+      "name": "student cannot access teacher endpoints",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "name": "student cannot access admin endpoints",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "name": "teacher cannot access admin endpoints",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "name": "unrelated teacher cannot read exam",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "name": "unrelated teacher cannot read results",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "name": "unrelated teacher cannot grade submission",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "name": "refresh token issues new session",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "name": "refreshed session is valid",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "name": "old refresh token is invalidated",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "name": "weak password rejected",
+      "pass": true,
+      "detail": "400"
+    },
+    {
+      "name": "duplicate email rejected",
+      "pass": true,
+      "detail": "409"
+    },
+    {
+      "name": "three-part student name rejected",
+      "pass": true,
+      "detail": "400 fullName"
+    }
+  ]
+}
