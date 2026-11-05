@@ -4,11 +4,13 @@ import {
   apiResponse,
   createExam,
   enrollStudent,
+  fourPartName,
   getPaper,
   openAppNav,
   openExam,
   registerAndLogin,
   uiLogin,
+  uniqueNameToken,
   uniqueSuffix,
 } from './helpers.js';
 
@@ -290,8 +292,9 @@ test('invitation link pre-fills registration and selects the inviting teacher', 
   const suffix = uniqueSuffix();
   const teacher = await registerAndLogin(request, 'Teacher', 'مدرس دعوة التسجيل');
   const studentPhone = `01${Math.floor(100000000 + Math.random() * 899999999)}`;
+  const inviteName = fourPartName(`طالب دعوة ${uniqueNameToken(4)}`);
   const invitation = await apiJson(request, 'POST', '/api/teacher/students/invite', teacher.token, {
-    fullName: `طالب دعوة ${suffix}`,
+    fullName: inviteName,
     studentPhone,
     parentPhone: `01${Math.floor(100000000 + Math.random() * 899999999)}`,
     stage: 'ثانوي',
@@ -302,7 +305,7 @@ test('invitation link pre-fills registration and selects the inviting teacher', 
   const banner = page.getByTestId('invitation-banner');
   await expect(banner).toBeVisible({ timeout: 15_000 });
   await expect(banner).toContainText(teacher.fullName);
-  await expect(page.locator('#auth-name')).toHaveValue(`طالب دعوة ${suffix}`);
+  await expect(page.locator('#auth-name')).toHaveValue(inviteName);
   await expect(page.locator('#auth-student-phone')).toHaveValue(studentPhone);
   await expect(page.locator('#auth-stage')).toHaveValue('ثانوي');
   await expect(page.locator('#auth-grade')).toHaveValue('الصف الثالث الثانوي');

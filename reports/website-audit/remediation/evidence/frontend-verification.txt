@@ -1,0 +1,43 @@
+Frontend remediation verification (Playwright, local Vite + disposable SQL Server API)
+Date: 2026-11-05
+
+1. Modal focus trap (question-type dialog)
+- Opened Create exam -> Add question.
+- Tab pressed 14 times: focus cycled through the 6 type buttons and the close button only.
+- No focus landed on the background navigation.
+- Escape closed the dialog and focus returned to the "إضافة سؤال جديد" trigger.
+
+2. AppShell mobile drawer
+- At 390x844, opened the sidebar.
+- 16 Tab presses stayed inside the dialog (drawer buttons).
+- Escape closed it; the exit animation completed and body overflow was restored.
+- Drawer is fixed, full-height, with a backdrop and body scroll lock.
+
+3. Landing mobile menu
+- At 390x844, menu panel rect: top=72, height=772, width=390.
+- Backdrop rect: top=72, height=772.
+- body overflow=hidden while open.
+- Focus stays inside the panel; Escape closes and restores focus.
+
+4. Hash navigation and refresh restore
+- #/dashboard -> #/results -> #/students.
+- Browser Back returned to #/results and rendered "النتائج والتحليلات".
+- Direct load of /#/students restored the students page after auth.
+- Reload on results restored results (sessionStorage fallback).
+- document.title follows the current page.
+
+5. Titles
+- Results: "النتائج والتحليلات · امتحاني".
+- Students: "إدارة الطلاب · امتحاني".
+- Dashboard: "مركز التحكم · امتحاني".
+
+6. Password policy UI
+- Login with password "Short1!" -> "كلمة المرور يجب أن تكون بين 10 و128 حرفاً."
+
+7. Lighthouse (local fixed build, landing and login)
+- Landing: Accessibility 100, Best Practices 100, SEO 100; 0 failures.
+- Login: Accessibility 100, Best Practices 100, SEO 100; 0 failures.
+- Reports: lighthouse-local-landing-final.html/.json, lighthouse-local-login-final.html/.json.
+
+8. Responsive
+- No horizontal overflow at 390, 768, 1366 (measured during the audit; no layout regressions introduced).

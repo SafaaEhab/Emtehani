@@ -43,6 +43,7 @@ import {
 import { request } from '../lib/api';
 import { EDUCATION_STAGES, gradesForStage, isValidEducation } from '../lib/education';
 import { formatDate, formatNumber } from '../lib/format';
+import { isValidPhone, normalizeDisplayName, parentNameError, phoneDigits, studentFullNameError } from '../lib/validation';
 
 const statusMeta = {
   Active: { label: 'نشط', tone: 'emerald', icon: CheckCircle2 },
@@ -104,7 +105,7 @@ export default function TeacherStudentsPage({ token }) {
   const [lookupResult, setLookupResult] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [requestBusy, setRequestBusy] = useState('');
-  const [inviteForm, setInviteForm] = useState({ fullName: '', studentPhone: '', parentPhone: '', stage: '', grade: '' });
+  const [inviteForm, setInviteForm] = useState({ fullName: '', studentPhone: '', parentPhone: '', parentName: '', stage: '', grade: '' });
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteResult, setInviteResult] = useState(null);
@@ -113,7 +114,7 @@ export default function TeacherStudentsPage({ token }) {
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({ fullName: '', studentPhone: '', parentPhone: '', stage: '', grade: '' });
+  const [editForm, setEditForm] = useState({ fullName: '', studentPhone: '', parentPhone: '', parentName: '', stage: '', grade: '' });
   const [editHistory, setEditHistory] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
@@ -194,7 +195,7 @@ export default function TeacherStudentsPage({ token }) {
     setLookupError('');
     setInviteError('');
     setInviteResult(null);
-    setInviteForm({ fullName: '', studentPhone: '', parentPhone: '', stage: '', grade: '' });
+    setInviteForm({ fullName: '', studentPhone: '', parentPhone: '', parentName: '', stage: '', grade: '' });
     loadInvitations();
   }
 
@@ -258,10 +259,13 @@ export default function TeacherStudentsPage({ token }) {
     event.preventDefault();
     setInviteError('');
     setInviteResult(null);
-    if (inviteForm.fullName.trim().length < 3) return setInviteError('أدخل اسم الطالب بشكل صحيح (3 أحرف على الأقل).');
-    if (!/^\+?\d{7,15}$/.test(inviteForm.studentPhone.replace(/[\s-]/g, ''))) return setInviteError('أدخل رقم هاتف طالب صحيحاً.');
-    if (!/^\+?\d{7,15}$/.test(inviteForm.parentPhone.replace(/[\s-]/g, ''))) return setInviteError('أدخل رقم هاتف ولي أمر صحيحاً.');
-    if (inviteForm.studentPhone.replace(/[\s-]/g, '') === inviteForm.parentPhone.replace(/[\s-]/g, '')) return setInviteError('رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.');
+    const inviteNameError = studentFullNameError(inviteForm.fullName);
+    if (inviteNameError) return setInviteError(inviteNameError);
+    if (!isValidPhone(inviteForm.studentPhone)) return setInviteError('أدخل رقم هاتف طالب صحيحاً.');
+    if (!isValidPhone(inviteForm.parentPhone)) return setInviteError('أدخل رقم هاتف ولي أمر صحيحاً.');
+    if (phoneDigits(inviteForm.studentPhone) === phoneDigits(inviteForm.parentPhone)) return setInviteError('رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.');
+    const inviteParentError = parentNameError(inviteForm.parentName);
+    if (inviteParentError) return setInviteError(inviteParentError);
     if (!isValidEducation(inviteForm.stage, inviteForm.grade)) return setInviteError('اختر المرحلة والصف الدراسي المناسبين.');
     setInviteBusy(true);
     try {
@@ -269,9 +273,10 @@ export default function TeacherStudentsPage({ token }) {
         token,
         method: 'POST',
         body: JSON.stringify({
-          fullName: inviteForm.fullName.trim(),
-          studentPhone: inviteForm.studentPhone.replace(/[\s-]/g, ''),
-          parentPhone: inviteForm.parentPhone.replace(/[\s-]/g, ''),
+          fullName: normalizeDisplayName(inviteForm.fullName),
+          studentPhone: phoneDigits(inviteForm.studentPhone),
+          parentPhone: phoneDigits(inviteForm.parentPhone),
+          parentName: normalizeDisplayName(inviteForm.parentName),
           stage: inviteForm.stage,
           grade: inviteForm.grade,
         }),
@@ -295,6 +300,7 @@ export default function TeacherStudentsPage({ token }) {
       fullName: row.fullName || '',
       studentPhone: '',
       parentPhone: '',
+      parentName: '',
       stage: row.stage || '',
       grade: row.grade || '',
     };
@@ -306,6 +312,7 @@ export default function TeacherStudentsPage({ token }) {
         fullName: data?.student?.fullName || fallback.fullName,
         studentPhone: data?.student?.studentPhone || '',
         parentPhone: data?.student?.parentPhone || '',
+        parentName: data?.student?.parentName || '',
         stage: data?.student?.stage || fallback.stage,
         grade: data?.student?.grade || fallback.grade,
       });
@@ -329,10 +336,17 @@ export default function TeacherStudentsPage({ token }) {
     event.preventDefault();
     if (!editTarget) return;
     setEditError('');
-    if (editForm.fullName.trim().length < 3) return setEditError('أدخل الاسم الكامل (3 أحرف على الأقل).');
-    if (!/^\+?\d{7,15}$/.test(editForm.studentPhone.replace(/[\s-]/g, ''))) return setEditError('أدخل رقم هاتف طالب صحيحاً.');
-    if (!/^\+?\d{7,15}$/.test(editForm.parentPhone.replace(/[\s-]/g, ''))) return setEditError('أدخل رقم هاتف ولي أمر صحيحاً.');
-    if (editForm.studentPhone.replace(/[\s-]/g, '') === editForm.parentPhone.replace(/[\s-]/g, '')) return setEditError('رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.');
+    const currentName = normalizeDisplayName(editHistory?.student?.fullName || editTarget?.fullName || '');
+    const editNameUnchanged = normalizeDisplayName(editForm.fullName) === currentName;
+    if (!editNameUnchanged) {
+      const editNameError = studentFullNameError(editForm.fullName);
+      if (editNameError) return setEditError(editNameError);
+    }
+    if (!isValidPhone(editForm.studentPhone)) return setEditError('أدخل رقم هاتف طالب صحيحاً.');
+    if (!isValidPhone(editForm.parentPhone)) return setEditError('أدخل رقم هاتف ولي أمر صحيحاً.');
+    if (phoneDigits(editForm.studentPhone) === phoneDigits(editForm.parentPhone)) return setEditError('رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.');
+    const editParentError = parentNameError(editForm.parentName);
+    if (editParentError) return setEditError(editParentError);
     if (!isValidEducation(editForm.stage, editForm.grade)) return setEditError('اختر المرحلة والصف الدراسي المناسبين.');
     setEditBusy(true);
     try {
@@ -340,9 +354,10 @@ export default function TeacherStudentsPage({ token }) {
         token,
         method: 'PUT',
         body: JSON.stringify({
-          fullName: editForm.fullName.trim(),
-          studentPhone: editForm.studentPhone.replace(/[\s-]/g, ''),
-          parentPhone: editForm.parentPhone.replace(/[\s-]/g, ''),
+          fullName: normalizeDisplayName(editForm.fullName),
+          studentPhone: phoneDigits(editForm.studentPhone),
+          parentPhone: phoneDigits(editForm.parentPhone),
+          parentName: normalizeDisplayName(editForm.parentName),
           stage: editForm.stage,
           grade: editForm.grade,
         }),
@@ -655,22 +670,53 @@ export default function TeacherStudentsPage({ token }) {
           <Alert tone="danger">{detailError}</Alert>
         ) : detail ? (
           <div>
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-[12px] border border-line bg-surface-soft px-3 py-2">
-                <p className="text-[10.5px] font-bold text-muted">الحالة</p>
-                <div className="mt-1">{selectedStatus ? <Badge tone={selectedStatus.tone}>{selectedStatus.label}</Badge> : null}</div>
+            <div className="mb-4 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-[13px] border border-line bg-surface-soft p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11.5px] font-bold text-ink">بيانات الطالب</p>
+                  {selectedStatus ? <Badge tone={selectedStatus.tone}>{selectedStatus.label}</Badge> : null}
+                </div>
+                <dl className="grid gap-1.5 text-[11px]">
+                  <div className="flex items-start justify-between gap-2"><dt className="text-muted">الاسم الرباعي</dt><dd className="text-left font-bold text-ink">{detail.fullName || '—'}</dd></div>
+                  <div className="flex items-start justify-between gap-2"><dt className="text-muted">هاتف الطالب</dt><dd className="text-left font-bold text-ink" dir="ltr">{detail.studentPhone || 'غير مسجل'}</dd></div>
+                  <div className="flex items-start justify-between gap-2"><dt className="text-muted">هاتف ولي الأمر</dt><dd className="text-left font-bold text-ink" dir="ltr">{detail.parentPhone || 'غير مسجل'}</dd></div>
+                  <div className="flex items-start justify-between gap-2"><dt className="text-muted">اسم ولي الأمر</dt><dd className="text-left font-bold text-ink">{detail.parentName || 'غير مسجل'}</dd></div>
+                  <div className="flex items-start justify-between gap-2"><dt className="text-muted">المرحلة / الصف</dt><dd className="text-left font-bold text-ink">{detail.stage || '—'} · {detail.grade || '—'}</dd></div>
+                </dl>
               </div>
-              <div className="rounded-[12px] border border-line bg-surface-soft px-3 py-2">
-                <p className="text-[10.5px] font-bold text-muted">المحاولات</p>
-                <p className="ui-number mt-1 text-[15px] font-bold text-ink">{formatNumber(detail.attemptsCount)}</p>
-              </div>
-              <div className="rounded-[12px] border border-line bg-surface-soft px-3 py-2">
-                <p className="text-[10.5px] font-bold text-muted">متاحة الآن</p>
-                <p className="ui-number mt-1 text-[15px] font-bold text-emerald">{formatNumber(detail.availableExamCount)}</p>
-              </div>
-              <div className="rounded-[12px] border border-line bg-surface-soft px-3 py-2">
-                <p className="text-[10.5px] font-bold text-muted">ممنوع منها</p>
-                <p className="ui-number mt-1 text-[15px] font-bold text-warning">{formatNumber(detail.bannedExamCount)}</p>
+              <div className="rounded-[13px] border border-line bg-surface-soft p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11.5px] font-bold text-ink">المحاولات</p>
+                  <span className="text-[10px] text-subtle">تُحتسب عند بدء المحاولة فعلياً</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-[10px] border border-line bg-surface px-2.5 py-2">
+                    <p className="text-[10px] text-muted">المسموح</p>
+                    <p className="ui-number mt-0.5 text-[17px] font-bold text-ink">{formatNumber(detail.attempts?.allowed ?? 0)}</p>
+                  </div>
+                  <div className="rounded-[10px] border border-line bg-surface px-2.5 py-2">
+                    <p className="text-[10px] text-muted">المستخدم</p>
+                    <p className="ui-number mt-0.5 text-[17px] font-bold text-primary">{formatNumber(detail.attempts?.used ?? 0)}</p>
+                  </div>
+                  <div className="rounded-[10px] border border-line bg-surface px-2.5 py-2">
+                    <p className="text-[10px] text-muted">المكتمل</p>
+                    <p className="ui-number mt-0.5 text-[17px] font-bold text-emerald">{formatNumber(detail.attempts?.completed ?? 0)}</p>
+                  </div>
+                  <div className="rounded-[10px] border border-line bg-surface px-2.5 py-2">
+                    <p className="text-[10px] text-muted">المتبقي</p>
+                    <p className="ui-number mt-0.5 text-[17px] font-bold text-warning">{formatNumber(detail.attempts?.remaining ?? 0)}</p>
+                  </div>
+                </div>
+                {(detail.attempts?.abandoned > 0 || detail.attempts?.exceptionUsed > 0) ? (
+                  <p className="mt-2 text-[10px] leading-5 text-subtle">
+                    {detail.attempts.abandoned > 0 ? `محاولات متروكة: ${formatNumber(detail.attempts.abandoned)} · ` : ''}
+                    {detail.attempts.exceptionUsed > 0 ? `محاولات استثنائية إضافية: ${formatNumber(detail.attempts.exceptionUsed)}` : ''}
+                  </p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Badge tone="emerald">{formatNumber(detail.availableExamCount)} متاحة الآن</Badge>
+                  <Badge tone="warning">{formatNumber(detail.bannedExamCount)} ممنوع منها</Badge>
+                </div>
               </div>
             </div>
 
@@ -695,7 +741,8 @@ export default function TeacherStudentsPage({ token }) {
                           {!exam.isPublished ? <Badge tone="neutral">غير منشور</Badge> : null}
                         </div>
                         <p className="mt-0.5 text-[10.5px] text-subtle">
-                          {exam.examStatus || 'مسودة'} · {formatNumber(exam.attemptsCount)} محاولة
+                          {exam.examStatus || 'مسودة'} · محاولات: {formatNumber(exam.attempts?.used ?? exam.attemptsCount)} / {formatNumber(exam.attempts?.allowed ?? exam.maxAttempts ?? 0)}
+                          {' '}· مكتملة: {formatNumber(exam.attempts?.completed ?? 0)} · متبقية: {formatNumber(exam.attempts?.remaining ?? 0)}
                           {exam.bannedAtUtc ? ` · مُنع في ${formatDate(exam.bannedAtUtc)}` : ''}
                         </p>
                       </div>
@@ -811,9 +858,14 @@ export default function TeacherStudentsPage({ token }) {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="truncate text-[12.5px] font-bold text-ink">{item.fullName}</p>
+                            {item.masked ? <Badge tone="neutral">بيانات مخفية</Badge> : null}
                             {meta ? <Badge tone={meta.tone}>{meta.label}</Badge> : null}
                           </div>
-                          <p className="mt-0.5 text-[10.5px] text-muted">{item.stage || 'مرحلة غير محددة'} · {item.grade || 'صف غير محدد'}</p>
+                          <p className="mt-0.5 text-[10.5px] text-muted">
+                            {item.masked
+                              ? 'تظهر البيانات الدراسية بعد موافقة الطالب على طلب الارتباط.'
+                              : `${item.stage || 'مرحلة غير محددة'} · ${item.grade || 'صف غير محدد'}`}
+                          </p>
                         </div>
                         {item.requestStatus === 'Accepted' ? (
                           <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-emerald"><CheckCircle2 size={12} />مرتبط بك</span>
@@ -852,7 +904,10 @@ export default function TeacherStudentsPage({ token }) {
                 <Field label="رقم هاتف ولي الأمر" id="invite-parent-phone" hint="قد يتشاركه الإخوة.">
                   <Input id="invite-parent-phone" dir="ltr" inputMode="tel" maxLength={20} value={inviteForm.parentPhone} onChange={updateInvite('parentPhone')} className="text-left" placeholder="01xxxxxxxxx" />
                 </Field>
-                <div className="grid grid-cols-2 gap-2">
+                <Field label="اسم ولي الأمر" id="invite-parent-name">
+                  <Input id="invite-parent-name" maxLength={200} value={inviteForm.parentName} onChange={updateInvite('parentName')} placeholder="مثال: أحمد محمد علي" />
+                </Field>
+                <div className="grid grid-cols-2 gap-2 sm:col-span-2">
                   <Field label="المرحلة" id="invite-stage">
                     <Select id="invite-stage" value={inviteForm.stage} onChange={updateInviteStage}>
                       <option value="">اختر</option>
@@ -935,6 +990,9 @@ export default function TeacherStudentsPage({ token }) {
                 <Input id="edit-student-phone" dir="ltr" inputMode="tel" maxLength={20} value={editForm.studentPhone} onChange={updateEdit('studentPhone')} className="text-left" />
               </Field>
             </div>
+            <Field label="اسم ولي الأمر" id="edit-parent-name" hint="يظهر في بيانات الطالب للمدرس المرتبط فقط.">
+              <Input id="edit-parent-name" maxLength={200} value={editForm.parentName} onChange={updateEdit('parentName')} placeholder="مثال: أحمد محمد علي" />
+            </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="رقم هاتف ولي الأمر" id="edit-parent-phone">
                 <Input id="edit-parent-phone" dir="ltr" inputMode="tel" maxLength={20} value={editForm.parentPhone} onChange={updateEdit('parentPhone')} className="text-left" />

@@ -65,6 +65,14 @@ public static class PlatformDataUpgrade
                 exam.AcademicYear = AcademicYear.For(exam.CreatedAtUtc);
         }
 
+        // 2-a. Explicit Unlinked status for legacy rows that only had UnlinkedAtUtc set.
+        // The history row is preserved; it simply stops counting as an active link.
+        var legacyUnlinked = await db.TeacherStudentRequests
+            .Where(x => x.UnlinkedAtUtc != null && x.Status == "Accepted")
+            .ToListAsync(cancellationToken);
+        foreach (var link in legacyUnlinked)
+            link.Status = "Unlinked";
+
         // 2-b. Legacy students never selected a teacher count. Anchor their limit to
         // the number of currently accepted links (minimum 1) so the existing rows cannot
         // bypass the student-teacher limit enforced for new registrations.

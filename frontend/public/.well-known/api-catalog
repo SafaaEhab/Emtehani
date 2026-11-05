@@ -4,7 +4,7 @@
       "anchor": "https://emtehani.vercel.app/",
       "service-desc": [
         {
-          "href": "https://emtehani-api.vercel.app/swagger/v1/swagger.json",
+          "href": "https://emtehani.runasp.net/swagger/v1/swagger.json",
           "type": "application/json",
           "title": "Emtehani API OpenAPI Specification"
         }
@@ -23,7 +23,7 @@
       ],
       "status": [
         {
-          "href": "https://emtehani-api.vercel.app/health",
+          "href": "https://emtehani.runasp.net/health",
           "type": "text/plain",
           "title": "API Health Check"
         }
@@ -42,10 +42,10 @@
       ]
     },
     {
-      "anchor": "https://emtehani-api.vercel.app/",
+      "anchor": "https://emtehani.runasp.net/",
       "service-desc": [
         {
-          "href": "https://emtehani-api.vercel.app/swagger/v1/swagger.json",
+          "href": "https://emtehani.runasp.net/swagger/v1/swagger.json",
           "type": "application/json",
           "title": "Emtehani API OpenAPI Specification"
         }
@@ -59,7 +59,7 @@
       ],
       "status": [
         {
-          "href": "https://emtehani-api.vercel.app/health",
+          "href": "https://emtehani.runasp.net/health",
           "type": "text/plain",
           "title": "API Health Check"
         }

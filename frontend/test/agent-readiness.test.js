@@ -20,7 +20,7 @@ test('robots.txt separates search and training crawlers', () => {
   }
   assert.match(robots, /^Content-Signal: search=yes, ai-input=yes, ai-train=no$/m);
   assert.match(robots, /^Sitemap: https:\/\/emtehani\.vercel\.app\/sitemap\.xml$/m);
-  assert.match(robots, /^Agentmap: https:\/\/emtehani\.vercel\.app\/\.well-known\/ard\.json$/m);
+  assert.doesNotMatch(robots, /^Agentmap:/m, 'non-standard Agentmap directive must not be present');
   assert.match(robots, /^Disallow: \/api\/$/m);
   const defaultGroup = robots.split('# Search crawlers:')[0];
   assert.doesNotMatch(defaultGroup, /^Disallow: \/$/m);
@@ -142,7 +142,10 @@ test('vercel.json applies discovery content types and security headers', () => {
   assert.equal(find('/.well-known/mcp/server-card.json', 'Access-Control-Allow-Origin').value, '*');
   assert.equal(find('/auth.md', 'Content-Type').value, 'text/markdown; charset=utf-8');
   assert.ok(find('/', 'Link').value.includes('rel="api-catalog"'));
-  assert.ok(find('/(.*)', 'Content-Security-Policy').value.includes("default-src 'self'"));
+  const csp = find('/(.*)', 'Content-Security-Policy').value;
+  assert.ok(csp.includes("default-src 'self'"));
+  assert.ok(csp.includes(`connect-src 'self' ${API}`), 'CSP must allow the authoritative MonsterASP API');
+  assert.ok(!/connect-src[^;]*\*/.test(csp), 'CSP connect-src must not use a wildcard');
 });
 
 test('middleware only converts the public home page', () => {

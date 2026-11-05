@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import {
   BarChart3,
   BookOpen,
@@ -32,6 +33,7 @@ const teacherNav = [
   { key: 'essays', label: 'مراجعة المقالات', icon: ClipboardCheck },
   { key: 'requests', label: 'طلبات الطلاب', icon: UserRound },
   { key: 'students', label: 'إدارة الطلاب', shortLabel: 'الطلاب', icon: Users },
+  { key: 'teacher-profile', label: 'صفحتي التعريفية', shortLabel: 'تعريفي', icon: UserRound },
   { key: 'subscription', label: 'الاشتراك', icon: CreditCard },
   { key: 'audit', label: 'سجل النشاط', icon: History },
 ];
@@ -58,6 +60,7 @@ const pageMeta = {
   essays: { title: 'مراجعة المقالات', eyebrow: 'تصحيح يدوي' },
   requests: { title: 'طلبات الطلاب', eyebrow: 'إدارة التسجيل' },
   students: { title: 'إدارة الطلاب', eyebrow: 'متابعة الطلاب' },
+  'teacher-profile': { title: 'صفحتي التعريفية', eyebrow: 'ملفي العام' },
   teachers: { title: 'المدرسون', eyebrow: 'اختيار المدرس' },
   profile: { title: 'ملفي الأكاديمي', eyebrow: 'بياناتي وسجلي' },
   subscription: { title: 'الاشتراك', eyebrow: 'الخطة الحالية' },
@@ -151,23 +154,11 @@ function SidebarContent({ user, nav, activePage, onNavigate, onLogout, onClose, 
 
 export default function AppShell({ user, page, activePage, title, subtitle, children, onNavigate, onLogout, theme, onToggleTheme }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileNavRef = useRef(null);
   const nav = user?.role === 'Teacher' ? teacherNav : user?.role === 'Admin' ? adminNav : studentNav;
   const meta = pageMeta[page] || pageMeta.dashboard;
   const visibleNav = nav.slice(0, 4);
-
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setMobileOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [mobileOpen]);
+  useFocusTrap(mobileOpen, mobileNavRef, () => setMobileOpen(false));
 
   return (
     <div className="min-h-dvh bg-canvas text-ink">
@@ -180,7 +171,7 @@ export default function AppShell({ user, page, activePage, title, subtitle, chil
         {mobileOpen ? (
           <>
             <motion.button type="button" aria-label="إغلاق القائمة" className="fixed inset-0 z-50 bg-[rgba(3,7,18,.5)] backdrop-blur-sm lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} />
-            <motion.aside role="dialog" aria-modal="true" aria-label="قائمة التنقل" className="fixed inset-y-0 right-0 z-[60] w-[min(88vw,310px)] border-l border-line bg-surface shadow-2xl lg:hidden" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 34 }}>
+            <motion.aside ref={mobileNavRef} role="dialog" aria-modal="true" aria-label="قائمة التنقل" tabIndex={-1} className="fixed inset-y-0 right-0 z-[60] w-[min(88vw,310px)] border-l border-line bg-surface shadow-2xl lg:hidden" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 34 }}>
               <SidebarContent user={user} nav={nav} activePage={activePage} onNavigate={onNavigate} onLogout={onLogout} onClose={() => setMobileOpen(false)} theme={theme} onToggleTheme={onToggleTheme} />
             </motion.aside>
           </>

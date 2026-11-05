@@ -94,6 +94,105 @@ public static class IdentityNormalizer
         return digits;
     }
 
+    /// <summary>Trims and collapses every run of whitespace to a single space without changing letters.</summary>
+    public static string NormalizeDisplayName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var builder = new StringBuilder(value.Length);
+        var previousWasSpace = false;
+        foreach (var raw in value.Normalize(NormalizationForm.FormKC).Trim())
+        {
+            if (char.IsWhiteSpace(raw) || raw == '\u00A0')
+            {
+                if (builder.Length > 0 && !previousWasSpace) builder.Append(' ');
+                previousWasSpace = true;
+                continue;
+            }
+            builder.Append(raw);
+            previousWasSpace = false;
+        }
+        return builder.ToString().Trim();
+    }
+
+    public static string[] NameParts(string? value) =>
+        NormalizeDisplayName(value)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// Student registration requires a real four-part Arabic/Latin name.
+    /// Digits, punctuation-only parts, and names shorter than four parts are rejected.
+    /// </summary>
+    public static string? StudentFullNameError(string? value)
+    {
+        if (NormalizeName(value).Length == 0) return "أدخل اسماً صحيحاً يحتوي على حروف.";
+        var parts = NameParts(value);
+        if (parts.Length < 4) return "اكتب اسم الطالب رباعياً (أربعة أسماء على الأقل).";
+        if (parts.Length > 8) return "اسم الطالب طويل جداً. اكتب الاسم الرباعي فقط.";
+        if (parts.Distinct(StringComparer.Ordinal).Count() < 3)
+            return "أدخل اسماً حقيقياً يتكون من أسماء مختلفة، وليس اسماً مكرراً أو وهمياً.";
+        foreach (var part in parts)
+        {
+            if (part.Length < 2) return "كل جزء من الاسم يجب أن يحتوي على حرفين على الأقل.";
+            if (part.Any(char.IsDigit)) return "لا يمكن أن يحتوي الاسم على أرقام.";
+            if (!part.All(ch => char.IsLetter(ch) || IsCombiningMark(ch) || ch is '\'' or '’' or '-')) return "استخدم حروفاً عربية أو إنجليزية فقط في الاسم.";
+        }
+        var normalized = NormalizeName(string.Join(' ', parts));
+        if (normalized.Length < 8) return "أدخل اسماً حقيقياً وواضحاً للطالب.";
+        return null;
+    }
+
+    private static bool IsCombiningMark(char ch) =>
+        CharUnicodeInfo.GetUnicodeCategory(ch) is
+            UnicodeCategory.NonSpacingMark or
+            UnicodeCategory.SpacingCombiningMark or
+            UnicodeCategory.EnclosingMark;
+
+    /// <summary>
+    /// Guardian name is optional for legacy rows but must contain real letters when supplied.
+    /// Returns null when the value is empty (nothing to update).
+    /// </summary>
+    public static string? ParentNameError(string? value)
+    {
+        var normalized = NormalizeDisplayName(value);
+        if (normalized.Length == 0) return null;
+        if (normalized.Length is < 3 or > 200) return "أدخل اسم ولي الأمر بين 3 و200 حرف.";
+        if (normalized.Any(char.IsDigit)) return "اسم ولي الأمر لا يمكن أن يحتوي على أرقام.";
+        if (!normalized.All(ch => char.IsLetter(ch) || char.IsWhiteSpace(ch) || IsCombiningMark(ch) || ch is '\'' or '’' or '-'))
+            return "استخدم حروفاً عربية أو إنجليزية فقط في اسم ولي الأمر.";
+        if (NormalizeName(normalized).Length < 3) return "أدخل اسم ولي الأمر بشكل صحيح.";
+        return null;
+    }
+
+    public static string Slugify(string? value, string fallback)
+    {
+        var text = (value ?? "").Normalize(NormalizationForm.FormKD).ToLowerInvariant();
+        var builder = new StringBuilder(text.Length);
+        var previousDash = false;
+        foreach (var ch in text)
+        {
+            if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))
+            {
+                builder.Append(ch);
+                previousDash = false;
+            }
+            else if ((char.IsWhiteSpace(ch) || ch is '-' or '_') && builder.Length > 0 && !previousDash)
+            {
+                builder.Append('-');
+                previousDash = true;
+            }
+        }
+        var slug = builder.ToString().Trim('-');
+        if (slug.Length < 3 || slug.Length > 64) return fallback;
+        return slug;
+    }
+
+    public static bool IsValidPublicSlug(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Length is >= 3 and <= 64
+        && value[0] != '-'
+        && value[^1] != '-'
+        && value.All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-');
+
     public static string? PhoneConflictMessage(string field) =>
         field == "student" ? "رقم هاتف الطالب غير صالح. أدخل رقماً صحيحاً بين 8 و15 رقماً." : "رقم هاتف ولي الأمر غير صالح. أدخل رقماً صحيحاً بين 8 و15 رقماً.";
 

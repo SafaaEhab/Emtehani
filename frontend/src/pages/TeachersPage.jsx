@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, GraduationCap, Link2, Mail, RefreshCw, Send, Unlink, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, ExternalLink, GraduationCap, Link2, Mail, RefreshCw, Send, Unlink, XCircle } from 'lucide-react';
 import { Alert, Avatar, Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { request } from '../lib/api';
 import { formatDate, formatNumber } from '../lib/format';
@@ -135,20 +135,26 @@ export default function TeachersPage({ token }) {
                 <div className="flex items-center gap-3">
                   <Avatar name={teacher.fullName} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-bold text-ink">{teacher.fullName}</p>
-                    <p className="mt-0.5 text-[11px] text-muted">{formatNumber(teacher.examCount)} امتحان منشور</p>
+                    <p className="truncate text-[13px] font-bold text-ink">{teacher.professionalName || teacher.fullName}</p>
+                    {teacher.professionalName ? <p className="truncate text-[10.5px] text-subtle">{teacher.fullName}</p> : null}
+                    <p className="mt-0.5 text-[11px] text-muted">{teacher.specialty ? `${teacher.specialty} · ` : ''}{formatNumber(teacher.examCount)} امتحان منشور</p>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {teacher.hasPublicProfile && teacher.profileSlug ? (
+                    <a href={`/t/${encodeURIComponent(teacher.profileSlug)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-line bg-surface px-2.5 text-[10.5px] font-bold text-muted transition hover:border-line-strong hover:text-primary">
+                      <ExternalLink size={11} /> عرض الملف التعريفي
+                    </a>
+                  ) : null}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
                   {status ? (
                     <Badge tone={status.tone}><StatusIcon size={11} className="me-1" />{status.label}</Badge>
                   ) : <span className="text-[11px] text-subtle">لم تُرسل طلباً بعد</span>}
-                  {!status || teacher.requestStatus === 'Unlinked' ? (
+                  {!status || teacher.requestStatus === 'Unlinked' || teacher.requestStatus === 'Rejected' ? (
                     <Button size="xs" icon={Send} loading={busyId === teacher.id} onClick={() => requestTeacher(teacher)}>
-                      {teacher.requestStatus === 'Unlinked' ? 'طلب التسجيل مجدداً' : 'طلب التسجيل'}
+                      {teacher.requestStatus === 'Unlinked' ? 'طلب التسجيل مجدداً' : teacher.requestStatus === 'Rejected' ? 'إعادة إرسال الطلب' : 'طلب التسجيل'}
                     </Button>
-                  ) : teacher.requestStatus === 'Rejected' ? (
-                    <span className="text-[10.5px] text-subtle">تواصل مع المدرس</span>
                   ) : null}
                 </div>
               </Card>

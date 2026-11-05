@@ -25,6 +25,7 @@ import {
 import { Alert, Badge, Button, Field, Input, Logo, Segmented, Select } from '../components/ui';
 import { request } from '../lib/api';
 import { EDUCATION_STAGES, gradesForStage, isValidEducation } from '../lib/education';
+import { isValidPhone, nameParts, normalizeDisplayName, parentNameError, phoneDigits, studentFullNameError } from '../lib/validation';
 
 function AuthVisual() {
   return (
@@ -97,6 +98,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     grade: '',
     studentPhone: '',
     parentPhone: '',
+    parentName: '',
     teacherCount: '1',
     teacherIds: [],
   });
@@ -131,6 +133,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
               fullName: data?.studentName || current.fullName,
               studentPhone: data?.studentPhone || current.studentPhone,
               parentPhone: data?.parentPhone || current.parentPhone,
+              parentName: data?.parentName || current.parentName,
               stage: data?.stage || current.stage,
               grade: data?.grade || current.grade,
               teacherCount: '1',
@@ -156,6 +159,29 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
       .finally(() => { if (active) setTeachersLoading(false); });
     return () => { active = false; };
   }, [mode, role]);
+
+  // The public directory is capped, so search on the server as the user types and
+  // merge the results. This keeps large directories discoverable without loading
+  // every teacher into the registration form.
+  useEffect(() => {
+    if (mode !== 'register' || role !== 'Student') return;
+    const term = teacherSearch.trim();
+    if (term.length < 2) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      request(`/api/public/teachers?search=${encodeURIComponent(term)}`)
+        .then((rows) => {
+          if (!active || !Array.isArray(rows)) return;
+          setTeachers((current) => {
+            const merged = new Map(current.map((teacher) => [teacher.id, teacher]));
+            for (const teacher of rows) merged.set(teacher.id, teacher);
+            return Array.from(merged.values());
+          });
+        })
+        .catch(() => { /* keep the already loaded directory */ });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [mode, role, teacherSearch]);
 
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -217,7 +243,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
     }
     if (mode === 'reset') {
       if (!resetToken) return setError('رابط إعادة التعيين غير صالح. اطلب رابطاً جديداً.');
-      if (newPassword.length < 8 || newPassword.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
+      if (newPassword.length < 10 || newPassword.length > 128) return setError('كلمة المرور يجب أن تكون بين 10 و128 حرفاً.');
       if (newPassword !== confirmPassword) return setError('كلمتا المرور غير متطابقتين.');
       setBusy(true);
       try {
@@ -234,33 +260,40 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
       }
       return;
     }
-    if (mode === 'register' && form.fullName.trim().length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
+    if (mode === 'register' && role === 'Teacher' && normalizeDisplayName(form.fullName).length < 3) return setError('اكتب الاسم الكامل (3 أحرف على الأقل).');
+    if (mode === 'register' && role === 'Student') {
+      const nameError = studentFullNameError(form.fullName);
+      if (nameError) return setError(nameError);
+    }
     if (mode === 'register' && role === 'Student' && !isValidEducation(form.stage, form.grade)) return setError('اختر المرحلة التعليمية والصف الدراسي المناسب له.');
     if (mode === 'register' && role === 'Student') {
-      const studentPhone = form.studentPhone.replace(/[\s-]/g, '');
-      const parentPhone = form.parentPhone.replace(/[\s-]/g, '');
-      if (!/^\+?\d{7,15}$/.test(studentPhone)) return setError('أدخل رقم هاتف طالب صحيحاً (7 إلى 15 رقماً).');
-      if (!/^\+?\d{7,15}$/.test(parentPhone)) return setError('أدخل رقم هاتف ولي أمر صحيحاً (7 إلى 15 رقماً).');
+      const studentPhone = phoneDigits(form.studentPhone);
+      const parentPhone = phoneDigits(form.parentPhone);
+      if (!isValidPhone(studentPhone)) return setError('أدخل رقم هاتف طالب صحيحاً (7 إلى 15 رقماً).');
+      if (!isValidPhone(parentPhone)) return setError('أدخل رقم هاتف ولي أمر صحيحاً (7 إلى 15 رقماً).');
       if (studentPhone === parentPhone) return setError('رقم هاتف الطالب يجب أن يختلف عن رقم هاتف ولي الأمر.');
+      const parentError = parentNameError(form.parentName, { required: true });
+      if (parentError) return setError(parentError);
       const teacherCount = Number(form.teacherCount);
       if (!Number.isInteger(teacherCount) || teacherCount < 1 || teacherCount > 20) return setError('حدد عدد المدرسين من 1 إلى 20.');
       if (form.teacherIds.length < 1) return setError('اختر مدرساً واحداً على الأقل من القائمة.');
       if (form.teacherIds.length > teacherCount) return setError(`اخترت ${form.teacherIds.length} مدرساً، وهو أكثر من العدد الذي حددته (${teacherCount}).`);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError('أدخل بريداً إلكترونياً صحيحاً.');
-    if (form.password.length < 8 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
+    if (form.password.length < 10 || form.password.length > 128) return setError('كلمة المرور يجب أن تكون بين 10 و128 حرفاً.');
     if (mode === 'register' && !accepted) return setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية.');
     setBusy(true);
     try {
       const result = await onAuth(mode, {
-        fullName: form.fullName.trim(),
+        fullName: normalizeDisplayName(form.fullName),
         email: form.email.trim(),
         password: form.password,
         role,
         stage: role === 'Student' ? form.stage : null,
         grade: role === 'Student' ? form.grade : null,
-        studentPhone: role === 'Student' ? form.studentPhone.replace(/[\s-]/g, '') : null,
-        parentPhone: role === 'Student' ? form.parentPhone.replace(/[\s-]/g, '') : null,
+        studentPhone: role === 'Student' ? phoneDigits(form.studentPhone) : null,
+        parentPhone: role === 'Student' ? phoneDigits(form.parentPhone) : null,
+        parentName: role === 'Student' ? normalizeDisplayName(form.parentName) : null,
         teacherCount: role === 'Student' ? Number(form.teacherCount) : null,
         teacherIds: role === 'Student' ? form.teacherIds : null,
         invitationToken: role === 'Student' && inviteToken ? inviteToken : null,
@@ -350,11 +383,20 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
             <form onSubmit={submit} className="grid gap-4" noValidate>
               {mode === 'register' ? (
                 <>
-                  <Field label="الاسم الكامل" id="auth-name">
+                  <Field
+                    label={role === 'Student' ? 'اسم الطالب رباعياً' : 'الاسم الكامل'}
+                    id="auth-name"
+                    hint={role === 'Student' ? 'اكتب أربعة أسماء واضحة: الاسم الأول، اسم الأب، اسم الجد، اسم العائلة.' : undefined}
+                  >
                     <div className="relative">
                       <UserRound size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
-                      <Input id="auth-name" autoComplete="name" maxLength={120} value={form.fullName} onChange={update('fullName')} placeholder="مثال: سارة أحمد" className="pr-10" />
+                      <Input id="auth-name" autoComplete="name" maxLength={120} value={form.fullName} onChange={update('fullName')} placeholder={role === 'Student' ? 'مثال: سارة أحمد محمد علي' : 'مثال: سارة أحمد'} className="pr-10" />
                     </div>
+                    {role === 'Student' ? (
+                      <p className={`mt-1 text-[10.5px] font-bold ${nameParts(form.fullName).length >= 4 ? 'text-emerald' : 'text-warning'}`}>
+                        عدد الأجزاء: {nameParts(form.fullName).length} / 4
+                      </p>
+                    ) : null}
                   </Field>
 
                   <Field label="نوع الحساب" id="auth-role" hint={role === 'Teacher' ? 'ستحصل على لوحة تحكم كاملة لإنشاء الامتحانات ومتابعة الطلاب.' : 'ستظهر لك امتحانات مدرسيك المطابقة لمرحلتك وصفك مباشرة بعد تسجيل الدخول.'}>
@@ -406,6 +448,10 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                           <Input id="auth-parent-phone" dir="ltr" inputMode="tel" maxLength={20} value={form.parentPhone} onChange={update('parentPhone')} placeholder="01xxxxxxxxx" className="text-left" />
                         </Field>
                       </div>
+
+                      <Field label="اسم ولي الأمر" id="auth-parent-name" hint="يظهر للمدرس المسؤول لمتابعة الطالب، ولا يُنشر علناً.">
+                        <Input id="auth-parent-name" autoComplete="off" maxLength={200} value={form.parentName} onChange={update('parentName')} placeholder="مثال: أحمد محمد علي" />
+                      </Field>
 
                       <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
                         <Field label="عدد المدرسين" id="auth-teacher-count" hint="الحد الذي تختاره لنفسك.">
@@ -468,7 +514,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                           </div>
                         )}
                         {form.teacherIds.length > teacherLimit ? <p className="mt-2 text-[10.5px] font-bold text-danger">عدد المختارين أكبر من الحد. قلّل الاختيار أو ارفع العدد.</p> : null}
-                        <p className="mt-2 text-[10px] leading-5 text-subtle">لا يظهر الطالب للمدرس إلا بعد قبول طلب الارتباط. لا يمكن إرسال أكثر من طلب واحد لنفس المدرس.</p>
+                        <p className="mt-2 text-[10px] leading-5 text-subtle">لا يظهر الطالب للمدرس إلا بعد قبول طلب الارتباط. لا يمكن إرسال أكثر من طلب معلّق لنفس المدرس، ويمكن إعادة الطلب بعد الرفض أو فك الارتباط.</p>
                       </div>
                     </>
                   ) : null}
@@ -487,7 +533,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
 
               {mode === 'forgot' ? null : mode === 'reset' ? (
                 <>
-                  <Field label="كلمة المرور الجديدة" id="auth-new-password" hint="8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.">
+                  <Field label="كلمة المرور الجديدة" id="auth-new-password" hint="10 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.">
                     <Input id="auth-new-password" type="password" autoComplete="new-password" maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="••••••••" className="px-3.5" />
                   </Field>
                   <Field label="تأكيد كلمة المرور" id="auth-confirm-password">
@@ -495,7 +541,7 @@ export default function AuthPage({ initialMode = 'login', onAuth, onBack, onOpen
                   </Field>
                 </>
               ) : (
-                <Field label="كلمة المرور" id="auth-password" hint={mode === 'register' ? '8 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.' : undefined}>
+                <Field label="كلمة المرور" id="auth-password" hint={mode === 'register' ? '10 أحرف على الأقل، ويفضل مزيج من الحروف والأرقام.' : undefined}>
                   <div className="relative">
                     <LockKeyhole size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle" />
                     <Input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} value={form.password} onChange={update('password')} placeholder="••••••••" className="pl-10 pr-10" />

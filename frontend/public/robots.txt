@@ -73,4 +73,3 @@ Content-Signal: search=no, ai-input=no, ai-train=no
 Disallow: /
 
 Sitemap: https://emtehani.vercel.app/sitemap.xml
-Agentmap: https://emtehani.vercel.app/.well-known/ard.json

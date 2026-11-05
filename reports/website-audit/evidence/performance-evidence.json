@@ -1,0 +1,60 @@
+{
+  "lighthouse": {
+    "production_landing": {
+      "accessibility": 0.93,
+      "best_practices": 1.0,
+      "seo": 0.8,
+      "report": "evidence/lighthouse-production-landing.html"
+    },
+    "production_login": {
+      "accessibility": 0.96,
+      "best_practices": 1.0,
+      "seo": 0.8,
+      "report": "evidence/lighthouse-production-login.html"
+    }
+  },
+  "navigation_timing_production_landing": {
+    "ttfb_ms": 459,
+    "dom_content_loaded_ms": 1860,
+    "load_ms": 1860,
+    "transferred_scripts_kb": 206,
+    "resources": 7,
+    "lcp_ms": "not buffered/available from the page context"
+  },
+  "api_latency": {
+    "local_warm_api_ms": [78, 4, 2],
+    "local_login_ms": 238,
+    "local_exams_list_ms": 332,
+    "local_live_ms": 5,
+    "production_login_cold_ms": 9900,
+    "production_login_warm_ms": [865, 347],
+    "production_api_root_ms": 227,
+    "note": "Production login was measured after an idle period; the first request consistently paid a serverless cold-start penalty (~10 s)."
+  },
+  "bundle": {
+    "js_uncompressed_kb": 780.1,
+    "css_kb": 91.7,
+    "fonts_kb": [
+      33.0,
+      30.7,
+      30.2,
+      27.0,
+      22.3,
+      16.3,
+      11.0
+    ],
+    "js_transfer_kb_production": 206
+  },
+  "polling": {
+    "teacher_exam_detail_live_interval_ms": 3000,
+    "session_countdown_interval_ms": 1000,
+    "note": "A teacher keeping the exam detail page open generates ~20 live requests per minute per exam."
+  },
+  "rendering": {
+    "mobile_390_overflow": false,
+    "tablet_768_overflow": false,
+    "laptop_1366_overflow": false,
+    "desktop_1920_overflow": false,
+    "full_page_portfolio_screenshot": "Sections below the fold are opacity:0 until scroll-triggered whileInView animations run; normal scrolling reveals them."
+  }
+}

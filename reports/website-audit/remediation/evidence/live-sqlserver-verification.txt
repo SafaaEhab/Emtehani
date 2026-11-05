@@ -1,0 +1,19 @@
+﻿register teacher 200 {"message":"╪¬┘à ╪Ñ┘å╪┤╪º╪í ╪º┘ä╪¡╪│╪º╪¿ ┘ê╪¬┘ü╪╣┘è┘ä┘ç ╪¬┘ä┘é╪º╪ª┘è┘ï╪º. ┘è┘à┘â┘å┘â ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä ╪º┘ä╪ó┘å.","studentCode":""}
+teacher login 200 {"token":"[redacted]"message":"╪¬┘à ╪Ñ┘å╪┤╪º╪í ╪º┘ä╪¡╪│╪º╪¿ ┘ê╪¬┘ü╪╣┘è┘ä┘ç ╪¬┘ä┘é╪º╪ª┘è┘ï╪º. ┘è┘à┘â┘å┘â ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä ╪º┘ä╪ó┘å.","studentCode":"554184"}
+student login 200 {"token":"[redacted]"id":"d4807ba9-b7bb-4c82-a159-518627f268ce","status":"Pending","initiatedBy":"Student","createdAtUtc":"2026-11-05T16:12:40.7760699Z","decidedAtUtc":null,"studentName":"╪╖╪º┘ä╪¿ ╪¬╪¡┘é┘é ┘à╪¿╪º╪┤╪▒ rfwyao","stude
+accept 200 {"id":"d4807ba9-b7bb-4c82-a159-518627f268ce","status":"Accepted"}
+create exam 201 {"id":"b448eb50-2f31-48ae-bb75-9b773f148b00","title":"╪º┘à╪¬╪¡╪º┘å ╪¬╪¡┘é┘é 95159118","description":"╪¬╪¡┘é┘é ┘à╪¿╪º╪┤╪▒","durationMinutes":30,"joinCode":"592338","isPub
+publish 200
+open 200
+enter 200 {"examId":"b448eb50-2f31-48ae-bb75-9b773f148b00","examTitle":"╪º┘à╪¬╪¡╪º┘å ╪¬╪¡┘é┘é 95159118","examDescription":"╪¬╪¡┘é┘é ┘à╪¿╪º╪┤╪▒","teacherName":"┘à╪»╪▒╪│ ╪¬╪¡┘é┘é ┘à╪¿╪º╪┤╪▒","du
+start 200 {"id":"0bb7f71f-34b9-4fb1-b22f-ec56f13e8f8d","startedAtUtc":"2026-11-05T16:12:41.8891994Z","durationMinutes":30,"extraTimeSeconds":0,"remainingSeconds":1800,"deadlineUtc":"2026-11-05T16:42:41.8891994Z
+paper 200 questions=2
+submit 200
+close 200
+detail 200 used=1 completed=1 remaining=0 finishedExams=1 exams=0
+overview openable=0
+audit 200 hasSubmission=true
+extraAttempt 409
+maskedLookup 200 masked=true name=╪╖╪º┘ä╪¿ ╪¬ΓÇª stage=null grade=null
+fullLookup 200 masked=false stage=╪½╪º┘å┘ê┘è
+

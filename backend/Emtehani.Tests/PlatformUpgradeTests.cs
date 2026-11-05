@@ -24,6 +24,21 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
     private const string NextGrade = "أولى بكالوريا";
 
     private static string Email(string prefix) => $"{prefix}-{Guid.NewGuid():N}@example.test";
+
+    private static string FourPartName(string name)
+    {
+        var parts = (name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var fillers = new[] { "طالب", "مميز", "أول", "ثاني" };
+        var filler = 0;
+        while (parts.Count < 4) parts.Add(fillers[filler++ % fillers.Length]);
+        return string.Join(' ', parts.Take(8));
+    }
+
+    private static string LetterSuffix()
+    {
+        var value = new string(Guid.NewGuid().ToString("N").Where(char.IsLetter).Take(6).ToArray());
+        return value.Length >= 2 ? value : "مم";
+    }
     private static string Phone(string prefix = "01") =>
         prefix + Random.Shared.Next(100000000, 999999999).ToString(System.Globalization.CultureInfo.InvariantCulture);
     private static Guid GuidValue(JsonNode? node) => Guid.Parse(node!.GetValue<string>());
@@ -38,11 +53,11 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         {
             fullName = name,
             email,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         });
         Assert.True(register.StatusCode == HttpStatusCode.OK, await register.Content.ReadAsStringAsync());
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await Json(login);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth["token"]!.GetValue<string>());
@@ -64,9 +79,9 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         parentPhone ??= Phone("02");
         var register = await client.PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = name,
+            fullName = FourPartName(name),
             email,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = Stage,
             grade = Grade,
@@ -77,7 +92,7 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
             invitationToken
         });
         Assert.True(register.StatusCode == HttpStatusCode.OK, await register.Content.ReadAsStringAsync());
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await Json(login);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth["token"]!.GetValue<string>());
@@ -112,9 +127,9 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         // Same name after normalisation, different phone/e-mail.
         var duplicateName = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = "احمد علي محمد",
+            fullName = "احمد علي محمد طالب",
             email = Email("duplicate-name"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = Stage,
             grade = Grade,
@@ -130,9 +145,9 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         var international = "+20" + firstPhone[1..];
         var duplicatePhone = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = $"طالب هاتف مكرر {Guid.NewGuid():N}",
+            fullName = $"طالب هاتف مكرر {LetterSuffix()}",
             email = Email("duplicate-phone"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = Stage,
             grade = Grade,
@@ -148,9 +163,9 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         var samePhone = Phone("01");
         var equalPhones = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = $"طالب هاتفين متساويين {Guid.NewGuid():N}",
+            fullName = $"طالب هاتفين متساويين {LetterSuffix()}",
             email = Email("same-phones"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = Stage,
             grade = Grade,
@@ -164,8 +179,8 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
 
         // Siblings may share a parent phone.
         var sharedParentPhone = Phone("02");
-        await RegisterStudent(teacherId, $"طالب شقيق أول {Guid.NewGuid():N}", parentPhone: sharedParentPhone);
-        await RegisterStudent(teacherId, $"طالب شقيق ثان {Guid.NewGuid():N}", parentPhone: sharedParentPhone);
+        await RegisterStudent(teacherId, $"طالب شقيق أول {LetterSuffix()} مميز", parentPhone: sharedParentPhone);
+        await RegisterStudent(teacherId, $"طالب شقيق ثان {LetterSuffix()} مميز", parentPhone: sharedParentPhone);
 
         // Punctuation-only names must not bypass normalization uniqueness.
         var punctuationOnly = await studentClient.PutAsJsonAsync("/api/student/profile", new
@@ -204,7 +219,7 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         var teacherInbox = await teacherTwo.GetFromJsonAsync<JsonNode>("/api/teacher/requests");
         var ownRequest = teacherInbox!.AsArray().Single(x =>
             x!["studentEmail"]?.GetValue<string>() == studentAuth["email"]!.GetValue<string>()
-            || (x["studentName"]!.GetValue<string>() == "طالب موافقة الارتباط" && x["initiatedBy"]!.GetValue<string>() == "Teacher"));
+            || (x["studentName"]!.GetValue<string>() == FourPartName("طالب موافقة الارتباط") && x["initiatedBy"]!.GetValue<string>() == "Teacher"));
         Assert.Equal("Teacher", ownRequest["initiatedBy"]!.GetValue<string>());
         Assert.Null(ownRequest["studentEmail"]);
         var teacherDecision = await teacherTwo.PutAsJsonAsync($"/api/teacher/requests/{GuidValue(ownRequest!["id"])}", new { action = "accept" });
@@ -248,7 +263,7 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         var studentPhone = Phone("01");
         var invite = await teacher.PostAsJsonAsync("/api/teacher/students/invite", new
         {
-            fullName = $"طالب مدعو {Guid.NewGuid():N}",
+            fullName = $"طالب مدعو {LetterSuffix()} مميز",
             studentPhone,
             parentPhone = Phone("02"),
             stage = Stage,
@@ -266,7 +281,7 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         Assert.Equal(studentPhone, publicInvite["studentPhone"]!.GetValue<string>());
         var publicTeachers = await factory.CreateClient().GetFromJsonAsync<JsonNode>("/api/public/teachers");
         Assert.Contains(publicTeachers!.AsArray(), x => GuidValue(x!["id"]) == teacherId);
-        var (student, studentAuth) = await RegisterStudent(teacherId, $"طالب مدعو {Guid.NewGuid():N}", studentPhone, invitationToken: token);
+        var (student, studentAuth) = await RegisterStudent(teacherId, $"طالب مدعو {LetterSuffix()} مميز", studentPhone, invitationToken: token);
 
         var link = await student.GetFromJsonAsync<JsonNode>("/api/student/link-requests");
         Assert.Equal("Accepted", link!.AsArray().Single()!["status"]!.GetValue<string>());
@@ -282,7 +297,7 @@ public sealed class PlatformUpgradeTests(ApiFactory factory) : IClassFixture<Api
         // A second invitation cannot create a duplicate account for the same phone.
         var duplicate = await teacher.PostAsJsonAsync("/api/teacher/students/invite", new
         {
-            fullName = $"طالب مكرر {Guid.NewGuid():N}",
+            fullName = $"طالب مكرر {LetterSuffix()} مميز",
             studentPhone,
             parentPhone = Phone("02"),
             stage = Stage,
@@ -579,12 +594,18 @@ public sealed class AdminApiFactory : ApiFactory
     protected override void ConfigureTestSettings(IWebHostBuilder builder)
     {
         builder.UseSetting("Admin:BootstrapEmail", "admin-bootstrap@example.test");
-        builder.UseSetting("Admin:BootstrapPassword", "AdminPassw0rd!");
+        builder.UseSetting("Admin:BootstrapPassword", "AdminPassw0rd!2026");
     }
 }
 
 public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture<AdminApiFactory>
 {
+    private static string LetterSuffix()
+    {
+        var value = new string(Guid.NewGuid().ToString("N").Where(char.IsLetter).Take(6).ToArray());
+        return value.Length >= 2 ? value : "مم";
+    }
+
     [Fact]
     public async Task AdminOverview_IsRoleProtected_AndReportsSubscriptionAndLinkCounts()
     {
@@ -597,10 +618,10 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
         {
             fullName = "مدرس لوحة الإدارة",
             email = teacherEmail,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         })).StatusCode);
-        var teacherLogin = await teacherClient.PostAsJsonAsync("/api/auth/login", new { email = teacherEmail, password = "Passw0rd!" });
+        var teacherLogin = await teacherClient.PostAsJsonAsync("/api/auth/login", new { email = teacherEmail, password = "Passw0rd!2026" });
         var teacherAuth = JsonNode.Parse(await teacherLogin.Content.ReadAsStringAsync())!;
         teacherClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", teacherAuth["token"]!.GetValue<string>());
         Assert.Equal(HttpStatusCode.Forbidden, (await teacherClient.GetAsync("/api/admin/overview")).StatusCode);
@@ -612,9 +633,9 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
         var teacherId = Guid.Parse(teacherAuth["userId"]!.GetValue<string>());
         var studentRegister = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = $"طالب عدّاد الإدارة {Guid.NewGuid():N}",
+            fullName = $"طالب عدّاد الإدارة {LetterSuffix()} مميز",
             email = studentEmail,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = "ثانوي",
             grade = "الصف الثالث الثانوي",
@@ -627,7 +648,7 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
         // Link the student directly for the count assertion; the teacher account intentionally
         // stays Pending so the admin dashboard still shows the unconfirmed-subscription state.
         var studentClient = factory.CreateClient();
-        var studentLogin = await studentClient.PostAsJsonAsync("/api/auth/login", new { email = studentEmail, password = "Passw0rd!" });
+        var studentLogin = await studentClient.PostAsJsonAsync("/api/auth/login", new { email = studentEmail, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, studentLogin.StatusCode);
         var studentAuth = JsonNode.Parse(await studentLogin.Content.ReadAsStringAsync())!;
         studentClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", studentAuth["token"]!.GetValue<string>());
@@ -654,7 +675,7 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
         var login = await admin.PostAsJsonAsync("/api/auth/login", new
         {
             email = "admin-bootstrap@example.test",
-            password = "AdminPassw0rd!"
+            password = "AdminPassw0rd!2026"
         });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = JsonNode.Parse(await login.Content.ReadAsStringAsync())!;
@@ -689,9 +710,9 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
         var selfPromoteEmail = $"admin-selfpromote-{Guid.NewGuid():N}@example.test";
         var selfPromoteRegister = await selfPromote.PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = $"طالب ترقية ذاتية {Guid.NewGuid():N}",
+            fullName = $"طالب ترقية ذاتية {LetterSuffix()}",
             email = selfPromoteEmail,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Admin",
             stage = "ثانوي",
             grade = "الصف الثالث الثانوي",
@@ -701,7 +722,7 @@ public sealed class AdminDashboardTests(AdminApiFactory factory) : IClassFixture
             teacherIds = new[] { teacherId }
         });
         Assert.Equal(HttpStatusCode.OK, selfPromoteRegister.StatusCode);
-        var selfLogin = await selfPromote.PostAsJsonAsync("/api/auth/login", new { email = selfPromoteEmail, password = "Passw0rd!" });
+        var selfLogin = await selfPromote.PostAsJsonAsync("/api/auth/login", new { email = selfPromoteEmail, password = "Passw0rd!2026" });
         var selfAuth = JsonNode.Parse(await selfLogin.Content.ReadAsStringAsync())!;
         Assert.Equal("Student", selfAuth["role"]!.GetValue<string>());
         selfPromote.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", selfAuth["token"]!.GetValue<string>());

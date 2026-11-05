@@ -46,7 +46,8 @@ public sealed class PostgresTestDatabase : IAsyncDisposable
         await using var connection = new NpgsqlConnection(admin.ConnectionString);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = $"CREATE DATABASE \"{databaseName}\"";
+        // Windows PostgreSQL clusters often default to WIN1252; Arabic fixtures need UTF8.
+        command.CommandText = $"CREATE DATABASE \"{databaseName}\" ENCODING 'UTF8' TEMPLATE template0";
         await command.ExecuteNonQueryAsync();
         return new PostgresTestDatabase(admin, databaseName);
     }

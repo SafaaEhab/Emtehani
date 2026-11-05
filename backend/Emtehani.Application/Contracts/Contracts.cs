@@ -9,6 +9,7 @@ public record RegisterRequest(
     string? Grade = null,
     string? StudentPhone = null,
     string? ParentPhone = null,
+    string? ParentName = null,
     int? TeacherCount = null,
     Guid[]? TeacherIds = null,
     string? InvitationToken = null);
@@ -30,11 +31,30 @@ public record AuthResponse(
     Guid? UserId = null);
 public record RefreshTokenRequest(string RefreshToken);
 public record EducationProfileRequest(string? Stage, string? Grade);
-public record StudentProfileUpdateRequest(string FullName, string StudentPhone, string ParentPhone, string? Stage, string? Grade);
-public record TeacherStudentProfileUpdateRequest(string FullName, string StudentPhone, string ParentPhone, string? Stage, string? Grade);
+public record StudentProfileUpdateRequest(string FullName, string StudentPhone, string ParentPhone, string? Stage, string? Grade, string? ParentName = null);
+public record TeacherStudentProfileUpdateRequest(string FullName, string StudentPhone, string ParentPhone, string? Stage, string? Grade, string? ParentName = null);
 public record TeacherStudentLookupRequest(string Phone);
 public record TeacherStudentRequestCreate(string? StudentId = null, string? Phone = null);
-public record TeacherInvitationRequest(string FullName, string StudentPhone, string? ParentPhone, string Stage, string Grade);
+public record TeacherInvitationRequest(string FullName, string StudentPhone, string? ParentPhone, string Stage, string Grade, string? ParentName = null);
+public record SocialLinkInput(string Label, string Url);
+public record TeacherProfileUpdateRequest(
+    string ProfessionalName,
+    string? Specialty = null,
+    string? Bio = null,
+    string? Qualifications = null,
+    string? Experience = null,
+    int? YearsOfExperience = null,
+    string? TeachingStyle = null,
+    string? ExtraInfo = null,
+    string? AvatarUrl = null,
+    string? CoverUrl = null,
+    string? ContactPhone = null,
+    string[]? Stages = null,
+    string[]? Grades = null,
+    SocialLinkInput[]? SocialLinks = null,
+    bool ShowEmail = false,
+    bool ShowPhone = false,
+    string? PublicSlug = null);
 public record StudentLinkDecisionRequest(string Action);
 public record SubscriptionSelectRequest(string PlanCode);
 public record AdminSubscriptionSettingsRequest(string[] Features);

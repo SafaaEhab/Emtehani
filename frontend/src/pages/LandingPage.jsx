@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import {
   ArrowLeft,
   BarChart3,
@@ -76,7 +77,7 @@ function LivePreview() {
     { name: 'عمر الشمري', code: '913406', time: '--:--', status: 'Waiting' },
   ];
   return (
-    <div className="relative mx-auto w-full max-w-[560px]">
+    <div className="relative mx-auto w-full max-w-[560px]" aria-hidden="true">
       <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[36px] bg-primary-soft/80 blur-2xl dark:bg-primary-soft/50" />
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 18, rotate: -0.5 }}
@@ -191,6 +192,8 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const menuRef = useRef(null);
+  useFocusTrap(menuOpen, menuRef, () => setMenuOpen(false));
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -199,16 +202,11 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [menuOpen]);
-
   return (
     <div className="min-h-dvh overflow-x-clip bg-canvas text-ink">
-      <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled || menuOpen ? 'border-b border-line bg-surface/90 backdrop-blur-xl' : 'bg-transparent'}`}>
+      <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${menuOpen ? 'border-b border-line bg-surface' : scrolled ? 'border-b border-line bg-surface/90 backdrop-blur-xl' : 'bg-transparent'}`}>
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="العودة إلى الأعلى"><Logo /></button>
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="امتحاني EMTEHANI — العودة إلى الأعلى"><Logo /></button>
           <nav className="hidden items-center gap-1 md:flex" aria-label="التنقل الرئيسي">
             {navLinks.map((link) => (
               <a key={link.href} href={link.href} className="rounded-[9px] px-3 py-2 text-[12.5px] font-semibold text-muted transition hover:bg-surface-soft hover:text-ink">{link.label}</a>
@@ -227,18 +225,39 @@ export default function LandingPage({ onLogin, onRegister, theme, onToggleTheme,
         </div>
         <AnimatePresence>
           {menuOpen ? (
-            <motion.div className="border-t border-line bg-surface px-4 py-4 md:hidden" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-              <nav className="grid gap-1">
-                {navLinks.map((link) => (
-                  <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)} className="rounded-[10px] px-3 py-2.5 text-sm font-semibold text-muted hover:bg-surface-soft hover:text-ink">{link.label}</a>
-                ))}
-                <button type="button" onClick={() => { setMenuOpen(false); onOpenPortfolio(); }} className="flex items-center gap-2 rounded-[10px] px-3 py-2.5 text-right text-sm font-semibold text-muted hover:bg-surface-soft"><ExternalLink size={15} />ملف المطور</button>
-              </nav>
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3">
-                <Button variant="secondary" onClick={() => { setMenuOpen(false); onLogin(); }}>تسجيل الدخول</Button>
-                <Button onClick={() => { setMenuOpen(false); onRegister(); }}>ابدأ مجاناً</Button>
-              </div>
-            </motion.div>
+            <>
+              <motion.button
+                type="button"
+                aria-label="إغلاق القائمة"
+                className="fixed inset-x-0 bottom-0 top-[72px] z-40 bg-[rgba(3,7,18,.55)] backdrop-blur-sm md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMenuOpen(false)}
+              />
+              <motion.div
+                ref={menuRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="قائمة التنقل"
+                tabIndex={-1}
+                className="fixed inset-x-0 bottom-0 top-[72px] z-50 overflow-y-auto border-t border-line bg-surface px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 md:hidden"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <nav className="grid gap-1">
+                  {navLinks.map((link) => (
+                    <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)} className="rounded-[10px] px-3 py-2.5 text-sm font-semibold text-muted hover:bg-surface-soft hover:text-ink">{link.label}</a>
+                  ))}
+                  <button type="button" onClick={() => { setMenuOpen(false); onOpenPortfolio(); }} className="flex items-center gap-2 rounded-[10px] px-3 py-2.5 text-right text-sm font-semibold text-muted hover:bg-surface-soft"><ExternalLink size={15} />ملف المطور</button>
+                </nav>
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3">
+                  <Button variant="secondary" onClick={() => { setMenuOpen(false); onLogin(); }}>تسجيل الدخول</Button>
+                  <Button onClick={() => { setMenuOpen(false); onRegister(); }}>ابدأ مجاناً</Button>
+                </div>
+              </motion.div>
+            </>
           ) : null}
         </AnimatePresence>
       </header>

@@ -1,0 +1,48 @@
+Infrastructure discovery (read-only)
+Date: 2026-11-05
+
+Authoritative API: https://emtehani.runasp.net
+- Server: Microsoft-IIS/10.0
+- X-Powered-By: ASP.NET
+- /health: 200 "Healthy" (139 ms measured)
+- POST /api/auth/login (unknown account, expected 401): 320 ms measured
+- CORS preflight from https://emtehani.vercel.app: 204 + Access-Control-Allow-Origin
+- CORS simple GET: 200 + Access-Control-Allow-Origin
+
+Database: MonsterASP SQL Server (db73841)
+- SQL Server 2025 Express (17.0.5015.4)
+- Compatibility level: 170
+- Collation: SQL_Latin1_General_CP1_CI_AS
+- Recovery model: SIMPLE
+- Tables: Users, Exams, Questions, Submissions, Answers, AuditEvents,
+  ExamParticipants, TeacherStudentRequests, TeacherStudentInvitations,
+  TeacherStudentExamBans, StudentAcademicChanges, SubscriptionPlans,
+  TeacherSubscriptions, TeacherProfiles, SystemSettings
+- No stored procedures, views, or triggers.
+- Row counts (read-only): Users 29, Exams 4, Questions 31, Submissions 12,
+  Answers 255, AuditEvents 118, TeacherStudentRequests 16, TeacherSubscriptions 6.
+- EF migration history: InitialCreate, HardenSubmissionConcurrency, 20261029150000_FirstMigration.
+
+Shared-data verification:
+- Monster API and the legacy Vercel API both returned the same 6 public teachers
+  and the same names/count as a read-only production query. They share the same
+  Monster SQL database. The Monster API is the authoritative deployment.
+
+Current deployed frontend (before remediation deployment):
+- Main JS references https://emtehani-api.vercel.app.
+- Served CSP connect-src: https://emtehani-api.vercel.app.
+- Current Vercel production env VITE_API_URL: https://emtehani.runasp.net.
+- This is the confirmed deployment drift: the next Vercel build will call Monster,
+  and the repository CSP already permits Monster; deploy both together.
+
+Production schema constraints relevant to this remediation:
+- AuditEvents.EntityType, AuditEvents.EntityId, Exams.Status, Submissions.Status,
+  TeacherStudentRequests.Status are nvarchar(max) on the live database.
+- Therefore no new index uses those columns as key columns. The remediation indexes
+  use only bounded columns (ActorId/AtUtc, StudentId/ExamId, ExamId,
+  TeacherId/UnlinkedAtUtc, TeacherId/IsPublished).
+
+Production write policy:
+- No production row/table/schema modification was executed during remediation.
+- No production migration was applied.
+- All create/update tests used disposable LocalDB databases.

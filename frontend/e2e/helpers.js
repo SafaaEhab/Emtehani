@@ -11,6 +11,25 @@ export function uniqueSuffix() {
   return randomUUID().slice(0, 8);
 }
 
+const ARABIC_LETTERS = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
+
+/** A digit-free token that can safely be used as one part of a student name. */
+export function uniqueNameToken(length = 6) {
+  return Array.from({ length }, () => ARABIC_LETTERS[Math.floor(Math.random() * ARABIC_LETTERS.length)]).join('');
+}
+
+/** Builds a valid four-part student display name from any prefix. */
+export function fourPartName(prefix) {
+  const parts = String(prefix || '')
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/\d/g, '').trim())
+    .filter((part) => part.length >= 2);
+  while (parts.length < 4) parts.push(uniqueNameToken(5));
+  // Keep the e2e database repeatable: always add a digit-free unique token.
+  return [...parts.slice(0, 7), uniqueNameToken(5)].slice(0, 8).join(' ');
+}
+
 export function uniquePhone() {
   return `01${Math.floor(100000000 + Math.random() * 899999999)}`;
 }
@@ -39,7 +58,7 @@ export async function apiResponse(request, method, path, token, data) {
 export async function registerAndLogin(request, role, namePrefix, education = {}) {
   const suffix = uniqueSuffix();
   const account = {
-    fullName: `${namePrefix} ${suffix}`,
+    fullName: role === 'Student' ? fourPartName(`${namePrefix} ${uniqueNameToken(6)}`) : `${namePrefix} ${suffix}`,
     email: `${role.toLowerCase()}-${suffix}@example.com`,
     password: PASSWORD,
     role,
@@ -57,6 +76,7 @@ export async function registerAndLogin(request, role, namePrefix, education = {}
       grade: education.grade || DEFAULT_GRADE,
       studentPhone: education.studentPhone || uniquePhone(),
       parentPhone: education.parentPhone || uniquePhone(),
+      parentName: education.parentName || 'أحمد محمد علي حسن',
       teacherCount: education.teacherCount ?? teacherIds.length,
       teacherIds,
     });
@@ -111,7 +131,7 @@ export async function createExam(request, token, options = {}) {
     title,
     description: 'E2E automated verification',
     durationMinutes: options.durationMinutes || 30,
-    maxAttempts: 1,
+    maxAttempts: options.maxAttempts || 1,
     allowResumeAfterFocusLoss: true,
     resultsReleaseMode: options.resultsReleaseMode || null,
     stage: options.stage || DEFAULT_STAGE,

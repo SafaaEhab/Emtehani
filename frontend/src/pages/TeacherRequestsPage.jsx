@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Clock3, Inbox, RefreshCw, UserCheck, X } from 'lucide-react';
+import { Check, Clock3, Inbox, RefreshCw, Unlink, UserCheck, X } from 'lucide-react';
 import { Alert, Avatar, Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { request } from '../lib/api';
 import { formatDate, formatNumber } from '../lib/format';
@@ -8,6 +8,7 @@ const statusLabels = {
   Pending: { label: 'قيد المراجعة', tone: 'warning', icon: Clock3 },
   Accepted: { label: 'مقبول', tone: 'emerald', icon: UserCheck },
   Rejected: { label: 'مرفوض', tone: 'danger', icon: X },
+  Unlinked: { label: 'تم فك الارتباط', tone: 'neutral', icon: Unlink },
 };
 
 export default function TeacherRequestsPage({ token }) {

@@ -65,6 +65,12 @@ value into source files, screenshots, reports, or chat.
 | `Auth__AutoConfirmWithoutSmtp` | Yes in production | Must be `false` |
 | `Swagger__Enabled` | No | `false` in production |
 | `Admin__BootstrapEmail` / `Admin__BootstrapPassword` | Optional | Creates one Admin only if no Admin exists |
+| `Proxy__TrustForwardedFor` | Recommended | Keep `false` unless the MonsterASP/IIS proxy addresses are known. `X-Forwarded-Proto` is accepted for HTTPS detection; `X-Forwarded-For` is ignored by default. |
+| `Proxy__KnownProxies` | Conditional | Exact proxy IPs, comma-separated. Required when `Proxy__TrustForwardedFor=true`. |
+| `Proxy__KnownNetworks` | Conditional | CIDR ranges, comma-separated. Required instead of/alongside known proxies when trusting forwarded client IPs. |
+| `Auth__MaxFailedLogins` / `Auth__LoginLockoutMinutes` | Recommended | Per-account lockout, default 5 failures / 15 minutes. |
+| `RateLimiting__LookupPermitLimit` | Recommended | Per-teacher phone-lookup limit, default 12/minute. |
+| `Database__BootstrapOnStartup` | Optional | Default `true`. Set `false` only after schema upgrades are managed by the deployment pipeline. |
 
 The React frontend must receive its API origin through `VITE_API_URL`; database
 credentials must never be exposed to the frontend.
@@ -115,7 +121,9 @@ test suite uses isolated SQLite/PostgreSQL databases.
 - Deploy the React frontend separately (for example Vercel) with `VITE_API_URL`
   pointing to the public API origin.
 - If the API origin changes, update the `connect-src` entry in
-  `frontend/vercel.json` as well; the current CSP allow-list is static.
+  `frontend/vercel.json` as well. `npm run build` now runs
+  `scripts/verify-csp.mjs` and fails when `VITE_API_URL` is missing from the CSP,
+  when a wildcard is used, or when `script-src` is weakened.
 - SQL Server must not be queried directly from the browser.
 - Verify HTTPS, CORS (`FrontendOrigin`), JWT, SMTP, and `/health` after deployment.
 - Deployment to production requires explicit approval.

@@ -18,6 +18,11 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
             var connectionString = ResolveConnectionString(sp.GetRequiredService<IConfiguration>());
+            // The application uses explicit transactions (exam close, submission
+            // finalization, relationships). Enabling EF's retrying execution strategy
+            // without wrapping every transaction in CreateExecutionStrategy() would make
+            // those paths fail at runtime, so retries stay at the infrastructure/proxy
+            // level until the transaction layer is refactored deliberately.
             if (IsSqlServerConnection(connectionString))
                 options.UseSqlServer(connectionString);
             else

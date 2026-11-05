@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useFocusTrap } from '../lib/useFocusTrap';
 import {
   AlertTriangle,
   BookOpen,
@@ -331,22 +332,10 @@ export function Alert({ tone = 'danger', title, children, onClose, className = '
 export function Modal({ open, onClose, title, description, icon: Icon = ShieldCheck, tone = 'primary', children, footer, size = 'md' }) {
   const reduce = useReducedMotion();
   const closeRef = useRef(null);
+  const dialogRef = useRef(null);
   const titleId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open, onClose]);
+  const descriptionId = useId();
+  useFocusTrap(open, dialogRef, onClose);
 
   const tones = {
     primary: 'bg-primary-soft text-primary',
@@ -360,9 +349,12 @@ export function Modal({ open, onClose, title, description, icon: Icon = ShieldCh
       {open ? (
         <motion.div className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,.58)] p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
+            aria-describedby={description ? descriptionId : undefined}
+            tabIndex={-1}
             className={cn('relative w-full overflow-hidden rounded-[24px] border border-line bg-surface p-5 shadow-[0_30px_100px_-20px_rgba(0,0,0,.45)] sm:p-6', size === 'lg' ? 'max-w-2xl' : size === 'sm' ? 'max-w-sm' : 'max-w-md')}
             initial={reduce ? false : { opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -376,7 +368,7 @@ export function Modal({ open, onClose, title, description, icon: Icon = ShieldCh
               <Icon size={23} />
             </div>
             <h2 id={titleId} className="font-display text-xl font-semibold tracking-[-0.03em] text-ink">{title}</h2>
-            {description ? <p className="mt-2 text-[13px] leading-6 text-muted">{description}</p> : null}
+            {description ? <p id={descriptionId} className="mt-2 text-[13px] leading-6 text-muted">{description}</p> : null}
             {children ? <div className="mt-5">{children}</div> : null}
             {footer ? <div className="mt-6 flex flex-wrap justify-end gap-2">{footer}</div> : null}
           </motion.div>

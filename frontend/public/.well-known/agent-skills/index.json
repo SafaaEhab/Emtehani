@@ -13,7 +13,7 @@
       "type": "skill-md",
       "description": "Work with the Emtehani REST API: JWT bearer authentication, public endpoints, rate limits, error format, privacy rules, and the documented OAuth/OIDC gap.",
       "url": "https://emtehani.vercel.app/.well-known/agent-skills/emtehani-public-api/SKILL.md",
-      "digest": "sha256:1792168f0583e6be8a4d6a4a45fd32e6878645c83c95e0abc01053af010a04aa"
+      "digest": "sha256:b8823016daa7eae695ae6634708189d384b843d932c883a5566fb479b966c81d"
     }
   ]
 }

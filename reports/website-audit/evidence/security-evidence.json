@@ -1,0 +1,68 @@
+{
+  "authorization_matrix": [
+    { "request": "GET /api/auth/me (no token)", "status": 401 },
+    { "request": "GET /api/exams (no token)", "status": 401 },
+    { "request": "GET /api/teacher/overview (no token)", "status": 401 },
+    { "request": "GET /api/admin/overview (teacher token)", "status": 403 },
+    { "request": "GET /api/teacher/overview (student token)", "status": 403 },
+    { "request": "GET /api/admin/overview (student token)", "status": 403 },
+    { "request": "POST /api/exams (student token, valid payload)", "status": 403 },
+    { "request": "GET /api/submissions/{student1Submission}/review (student2 token)", "status": 403 },
+    { "request": "PUT /api/submissions/{student1Submission}/answers (student2 token)", "status": 404 },
+    { "request": "POST /api/submissions/{student1Submission}/submit (student2 token)", "status": 404 },
+    { "request": "GET /api/exams/{exam}/results (student token)", "status": 403 },
+    { "request": "GET /api/exams/{exam}/export (student token)", "status": 403 },
+    { "request": "GET /api/audit (student token)", "status": 403 },
+    { "request": "GET /api/exams/{exam}/participants (student token)", "status": 403 },
+    { "request": "GET /api/auth/me (tampered JWT)", "status": 401 },
+    { "request": "GET /api/exams/{otherTeacherExam} (teacher1 token)", "status": 403 },
+    { "request": "PUT /api/exams/{otherTeacherExam}/publish (teacher1 token)", "status": 404 },
+    { "request": "GET /api/exams/{otherTeacherExam}/participants (teacher1 token)", "status": 404 },
+    { "request": "GET /api/exams/{otherTeacherExam}/export (teacher1 token)", "status": 404 },
+    { "request": "GET /api/teacher/students/{teacher1Student} (teacher2 token)", "status": 404 },
+    { "request": "PUT /api/exams/{teacher1Exam}/state (teacher2 token)", "status": 404 }
+  ],
+  "rate_limiting": {
+    "normal_client": "60 x 401 then 429 on attempt 61; Retry-After: 60",
+    "rotating_x_forwarded_for": "65 login attempts with a different X-Forwarded-For each time returned 65 x 401 and 0 x 429",
+    "impact": "The only brute-force protection on login/register/forgot-password can be bypassed by spoofing the forwarded client IP because all proxies are trusted and the rate-limit key uses the rewritten RemoteIpAddress."
+  },
+  "pii_exposure": {
+    "endpoint": "GET /api/teacher/students/lookup?phone={phone}",
+    "observed": "A newly created, unrelated teacher account (free plan confirmed, no relationship to the student) received the student's full name, studentId, stage, grade and registration source from a single exact-phone lookup.",
+    "missing_control": "No endpoint-specific rate limiting on this endpoint."
+  },
+  "headers": {
+    "frontend_csp": "present (production value allows connect-src https://emtehani-api.vercel.app)",
+    "frontend_hsts": "max-age=31536000; includeSubDomains",
+    "api_hsts": "max-age=2592000",
+    "x_content_type_options": "nosniff",
+    "x_frame_options": "DENY",
+    "referrer_policy": "no-referrer",
+    "permissions_policy": "camera=(), microphone=(), geolocation=()",
+    "cache_control_api": "no-store",
+    "cors_evil_origin": "no Access-Control-Allow-Origin header on simple request and preflight"
+  },
+  "token_handling": {
+    "password_hashing": "PBKDF2-SHA256, 120000 iterations, per-user salt, fixed-time comparison",
+    "refresh_rotation": "old refresh token rejected (401) after first refresh; token invalidated on logout (401)",
+    "reset_token": "single-use; clears password reset token and all refresh tokens",
+    "storage": "access and refresh tokens are kept in localStorage (mitigated by strict CSP and absence of HTML injection sinks)"
+  },
+  "configuration_drift": {
+    "repo_gitignore": "frontend/vercel.json in the working tree still lists connect-src https://emtehani.runasp.net",
+    "production": "served CSP lists connect-src https://emtehani-api.vercel.app",
+    "risk": "A redeploy from this working tree without updating the CSP would block all API calls from the production frontend."
+  },
+  "api_rate_limit_coverage": {
+    "endpoints_total_parsed": 76,
+    "endpoints_with_explicit_rate_limiting": 18,
+    "examples_without_endpoint_rate_limit": [
+      "GET /api/teacher/students/lookup",
+      "POST /api/teacher/students/invite",
+      "GET /api/exams/{id}/results",
+      "GET /api/exams/{id}/export",
+      "GET /api/audit"
+    ]
+  }
+}

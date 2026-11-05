@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "frontend_production": "https://emtehani.vercel.app/",
+    "api_production": "https://emtehani-api.vercel.app",
+    "frontend_local": "http://localhost:5173",
+    "api_local": "http://127.0.0.1:5000",
+    "date": "2026-11-05",
+    "test_accounts": "disposable synthetic accounts created during the audit"
+  },
+  "exam_lifecycle": {
+    "teacher_registration": "HTTP 200, auto-confirmed in Development",
+    "teacher_subscription": "Free plan confirmed (HTTP 200)",
+    "exam_created": "HTTP 201, 2 questions, 10 points, 45 minutes",
+    "exam_published": "HTTP 200",
+    "session_opened": "HTTP 200, state Active",
+    "student_registered": "HTTP 200, student code generated",
+    "teacher_link_request": "pending -> teacher accepted (HTTP 200)",
+    "student_available_exams": "1 exam after acceptance, 0 before acceptance",
+    "exam_entered_and_started": "HTTP 200, attempt created",
+    "mcq_answered_and_autosaved": "UI status: changes saved",
+    "essay_answered_and_autosaved": "UI status: changes saved",
+    "submitted": "HTTP 200; UI review modal showed 2/2 answered",
+    "results_before_publication": "hidden: 'بانتظار موعد إظهار النتائج'",
+    "essay_graded": "HTTP 200, 5/5, feedback stored, final score 10/10",
+    "session_closed": "HTTP 200, status Finished",
+    "results_published": "automatic for ResultsReleaseMode=AfterExamEnd",
+    "student_results": "10/10, Reviewed, correct answers and teacher note visible"
+  },
+  "confirmed_ui_defects": [
+    {
+      "id": "BUG-01",
+      "page": "Teacher > Students > student details",
+      "observed": "Attempt summary shows Allowed 1 / Used 0 / Completed 0 / Remaining 1, and '0 exams', although the student has a Reviewed submission scoring 10/10.",
+      "api_evidence": "GET /api/teacher/students/{studentId} returned attemptsCount=0, attempts.used=0, attempts.completed=0, submittedAttempts=0 after the submission was graded.",
+      "root_cause": "Finished exams are excluded from the exam list before attempts are aggregated (Program.cs student detail endpoint filters Status != \"Finished\")."
+    },
+    {
+      "id": "BUG-02",
+      "page": "Teacher dashboard",
+      "observed": "Stat card says 'جلسات يمكن فتحها 1' while the only exam is finished (status منتهي) and cannot be opened.",
+      "root_cause": "Counter computed as publishedExams - activeExams, without excluding finished exams."
+    },
+    {
+      "id": "BUG-03",
+      "page": "Teacher audit log",
+      "observed": "Page description promises submissions in the timeline, but after a full student submission the page reports 'تسليمات 0' and the timeline has no submission.submitted event.",
+      "root_cause": "Audit page filters events by ActorId == teacherId; student-originated events (submission.started/submitted) are stored with the student as actor and are not visible to the teacher."
+    },
+    {
+      "id": "BUG-04",
+      "page": "Nested review pages",
+      "observed": "Page header on student review and teacher essay review falls back to the generic title 'امتحاني' instead of 'مراجعة المحاولة' / 'تصحيح المحاولة'.",
+      "root_cause": "teacherTitles/studentTitles maps do not contain 'review' or 'essay-review'."
+    },
+    {
+      "id": "BUG-05",
+      "page": "Modal component",
+      "observed": "Keyboard focus leaves an open modal after 6 Tab presses and lands on the background bottom navigation (المركز / اختبارات).",
+      "root_cause": "Modal implements Escape and initial focus but no focus trap and no focus restoration."
+    }
+  ],
+  "console_and_network": {
+    "production_landing": "0 console errors, 0 failed requests",
+    "production_login": "0 console errors",
+    "local_landing": "0 console errors; React DevTools info only",
+    "expected_non_2xx": [
+      "POST /api/auth/login 401 for wrong credentials",
+      "POST /api/teachers/{id}/request 409 when teacher limit reached",
+      "PUT /api/exams/{id}/publish 200 after publish"
+    ]
+  },
+  "not_tested_or_blocked": [
+    "Admin UI and admin settings (no admin account/bootstrap credentials available)",
+    "Live timer auto-submit at expiry (covered by backend integration tests, not waited out live)",
+    "Concurrent autosave vs submit (covered by backend integration tests)",
+    "Exam availability window and ban/suspend flows (backend integration tests exist)",
+    "Teacher invitation token registration end-to-end (validation only)",
+    "Legacy join-by-code endpoint (backend integration tests exist)"
+  ]
+}

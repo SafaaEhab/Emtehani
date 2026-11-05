@@ -7,6 +7,8 @@ import {
   openAuth,
   registerAndLogin,
   uiLogin,
+  fourPartName,
+  uniqueNameToken,
   uniquePhone,
   uniqueSuffix,
 } from './helpers.js';
@@ -17,7 +19,7 @@ test('baccalaureate stage is selectable in registration and exam creation and vi
 
   const suffix = uniqueSuffix();
   const student = {
-    fullName: `طالب بكالوريا ${suffix}`,
+    fullName: fourPartName(`طالب بكالوريا ${uniqueNameToken(4)}`),
     email: `baccalaureate-student-${suffix}@example.com`,
     password: PASSWORD,
     role: 'Student',
@@ -41,6 +43,9 @@ test('baccalaureate stage is selectable in registration and exam creation and vi
   await page.locator('#auth-grade').selectOption('أولى بكالوريا');
   await page.locator('#auth-student-phone').fill(uniquePhone());
   await page.locator('#auth-parent-phone').fill(uniquePhone());
+  await page.locator('#auth-parent-name').fill('أحمد محمد علي حسن');
+  await page.getByLabel('ابحث باسم المدرس').fill(teacher.fullName);
+  await expect(page.locator(`[data-testid="auth-teacher-${teacher.id}"]`)).toBeVisible();
   await page.locator(`[data-testid="auth-teacher-${teacher.id}"]`).click();
   await page.locator('input[type="checkbox"]').check();
   await page.getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();

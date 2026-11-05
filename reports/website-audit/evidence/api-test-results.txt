@@ -1,0 +1,96 @@
+﻿Emtehani API â€” live test matrix (local API 127.0.0.1:5000)
+Date: 2026-11-05
+Legend: PASS = exercised, expected result observed; PARTIAL = related path exercised; NOT RUN = not exercised live; BLOCKED = requires unavailable role/data.
+
+AUTH
+PASS  POST /api/auth/register                  student + teacher, auto-confirm in Development
+PASS  POST /api/auth/register                  duplicate email -> 409
+PASS  POST /api/auth/register                  weak password -> 400
+PASS  POST /api/auth/register                  3-part student name -> 400 with field
+PASS  POST /api/auth/login                     valid teacher/student -> 200
+PASS  POST /api/auth/login                     wrong password/email -> 401
+PASS  POST /api/auth/login                     uppercase + surrounding spaces -> 200
+PASS  POST /api/auth/login                     no body -> 400 problem+json
+PASS  POST /api/auth/login                     61st request from one IP -> 429, Retry-After: 60
+FAIL  POST /api/auth/login                     rotating X-Forwarded-For -> 65x401, no 429 (bypass)
+PASS  POST /api/auth/refresh                   rotation works; old token -> 401; after logout -> 401
+PASS  POST /api/auth/logout                    refresh token invalidated
+PASS  GET  /api/auth/me                        valid / missing / tampered token
+PASS  POST /api/auth/forgot-password           unknown email generic 200; invalid email 400
+PASS  POST /api/auth/reset-password            invalid token -> 400
+PASS  POST /api/auth/resend-verification       unknown email generic 200
+NOT RUN POST /api/auth/verify-email            requires a real verification token
+NOT RUN PUT /api/auth/profile/education        UI path not submitted live
+PARTIAL GET /api/student/profile
+PARTIAL PUT /api/student/profile               empty-name validation -> 400 observed
+PASS  GET /api/student/link-requests
+PARTIAL PUT /api/student/link-requests/{id}    accept/reject path not exercised live
+
+EXAMS / TEACHER
+PASS  POST /api/exams                          valid -> 201; student -> 403
+PASS  POST /api/exams                          duration 0/301 -> 400; end before start -> 400; bad release mode -> 400
+PASS  GET  /api/exams                          list + search with SQL metacharacters -> safe empty result
+PASS  GET  /api/exams/{id}                     owner -> 200; other teacher -> 403
+PASS  PUT  /api/exams/{id}/publish             owner -> 200; other teacher -> 404
+NOT RUN PUT /api/exams/{id}/availability
+PASS  GET  /api/teachers                       student directory
+PASS  POST /api/teachers/{id}/request          limit reached -> 409
+PASS  GET  /api/teacher/requests
+PASS  PUT  /api/teacher/requests/{id}          accept -> 200
+PASS  GET  /api/teacher/students
+PASS  GET  /api/teacher/students/{id}          details; attempt summary defect confirmed
+PASS  GET  /api/teacher/students/lookup        PII returned to unrelated teacher; no endpoint rate limit
+NOT RUN POST /api/teacher/students/{id}/exam-bans
+NOT RUN DELETE /api/teacher/students/{id}/exam-bans/{examId}
+NOT RUN POST /api/teacher/students/{id}/suspend
+NOT RUN POST /api/teacher/students/{id}/reactivate
+NOT RUN DELETE /api/teacher/students/{id}
+NOT RUN POST /api/teacher/students/request       request path exercised indirectly via registration
+PARTIAL POST /api/teacher/students/invite      empty form validation only
+NOT RUN GET /api/teacher/students/invitations
+NOT RUN PUT /api/teacher/students/{id}/profile
+NOT RUN GET /api/teacher/students/{id}/academic-history
+PASS  GET  /api/teacher/profile
+PASS  PUT  /api/teacher/profile                saved profile
+PASS  POST /api/teacher/profile/publish        published; public contacts hidden
+NOT RUN POST /api/teacher/profile/unpublish
+NOT RUN GET  /api/teachers/{id}/profile
+PASS  GET  /api/public/teachers/{slug}         public profile + hidden email/phone
+PASS  GET  /api/teacher/overview               stats returned
+NOT RUN POST /api/exams/{id}/participants/generate
+NOT RUN POST /api/exams/{id}/participants/{participantId}/regenerate
+PASS  GET  /api/exams/{id}/participants        owner 200; student 403; other teacher 404
+NOT RUN GET  /api/exams/{id}/participants/export
+PASS  PUT  /api/exams/{id}/state               open/close; other teacher 404
+PARTIAL POST /api/exams/{id}/results/publish   auto-publish on close observed; manual publish not needed
+NOT RUN POST /api/exams/enter-code
+PASS  GET  /api/exams/available                linked student sees exam; pending link sees none
+PASS  POST /api/exams/{id}/enter               owner entry; finished exam -> 409
+PARTIAL GET  /api/exams/{id}/session        lobby polling observed
+PASS  GET  /api/exams/{id}/paper          exam paper loaded
+PASS  GET  /api/exams/{id}/live                polling; participant 10/10 after grading
+NOT RUN GET  /api/exams/join/{code}
+PASS  POST /api/exams/{id}/start
+PASS  PUT  /api/submissions/{id}/answers       autosave observed
+PASS  POST /api/submissions/{id}/submit        final submit
+PASS  GET  /api/results/mine                   student 200; teacher empty list
+PASS  GET  /api/exams/{id}/results             teacher 200; student 403
+PASS  POST /api/submissions/{id}/grant-extra-attempt
+PASS  PUT  /api/submissions/{id}/answers/{answerId}/grade
+PASS  GET  /api/exams/{id}/review
+PASS  GET  /api/exams/{id}/export              CSV with UTF-8 BOM; formula escaping present
+PASS  GET  /api/submissions/{id}/review        owner 200; other student 403
+NOT RUN POST /api/submissions/{id}/events        focus-loss endpoint not triggered
+NOT RUN POST /api/admin/reset                  disabled/405 in this environment; non-admin 403
+
+SUBSCRIPTIONS / ADMIN / AUDIT
+PASS  GET  /api/subscriptions/plans
+PASS  GET  /api/teacher/subscription
+PASS  POST /api/teacher/subscription           free plan confirmed
+PASS  GET  /api/admin/overview                 teacher/student -> 403
+BLOCKED GET /api/admin/subscription-settings   requires admin account
+BLOCKED PUT /api/admin/subscription-settings   requires admin account
+PASS  GET  /api/audit                          teacher 200; student 403
+PASS  GET  /api                                200
+PASS  GET  /health                             200 Healthy
+

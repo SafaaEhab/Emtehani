@@ -9,6 +9,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
  public DbSet<TeacherSubscription> TeacherSubscriptions=>Set<TeacherSubscription>();
  public DbSet<SystemSetting> SystemSettings=>Set<SystemSetting>();
  public DbSet<TeacherStudentInvitation> TeacherStudentInvitations=>Set<TeacherStudentInvitation>();
+ public DbSet<TeacherProfile> TeacherProfiles=>Set<TeacherProfile>();
  protected override void OnModelCreating(ModelBuilder b) {
   var npgsql = Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
   b.Entity<AppUser>().HasIndex(x=>x.Email).IsUnique();
@@ -18,6 +19,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<AppUser>().Property(x=>x.NormalizedName).HasMaxLength(256);
   b.Entity<AppUser>().Property(x=>x.StudentPhone).HasMaxLength(20);
   b.Entity<AppUser>().Property(x=>x.ParentPhone).HasMaxLength(20);
+  b.Entity<AppUser>().Property(x=>x.ParentName).HasMaxLength(200);
   b.Entity<AppUser>().Property(x=>x.RegistrationSource).HasMaxLength(24);  var studentNameFilter = npgsql ? "\"Role\" = 'Student' AND \"NormalizedName\" <> ''" : "[Role] = 'Student' AND [NormalizedName] <> ''";
   b.Entity<AppUser>().HasIndex(x=>x.NormalizedName).IsUnique().HasDatabaseName("IX_Users_NormalizedName_Student").HasFilter(studentNameFilter);
   var studentPhoneFilter = npgsql ? "\"StudentPhone\" IS NOT NULL AND \"StudentPhone\" <> ''" : "[StudentPhone] IS NOT NULL AND [StudentPhone] <> ''";
@@ -28,6 +30,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<Exam>().Property(x=>x.ResultsReleaseMode).HasMaxLength(32);
   b.Entity<Exam>().Property(x=>x.AcademicYear).HasMaxLength(16);
   b.Entity<Exam>().HasIndex(x=>x.AcademicYear);
+  b.Entity<Exam>().HasIndex(x=>new{x.TeacherId,x.IsPublished}).HasDatabaseName("IX_Exams_TeacherId_Published");
   b.Entity<AppUser>().Property(x=>x.RefreshTokenHash).HasMaxLength(64);
   b.Entity<AppUser>().HasIndex(x=>x.RefreshTokenHash);
   var studentCodeFilter = npgsql ? "\"StudentCode\" <> ''" : "[StudentCode] <> ''";
@@ -44,6 +47,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<Submission>().HasMany(x=>x.Answers).WithOne(x=>x.Submission).HasForeignKey(x=>x.SubmissionId).OnDelete(DeleteBehavior.Cascade);
   var inProgressFilter = npgsql ? "\"Status\" = 'InProgress'" : "[Status] = 'InProgress'";
   b.Entity<Submission>().HasIndex(x=>new{x.ExamId,x.StudentId}).HasDatabaseName("IX_Submissions_Exam_Student_InProgress").HasFilter(inProgressFilter).IsUnique();
+  b.Entity<Submission>().HasIndex(x=>new{x.StudentId,x.ExamId});
+  b.Entity<Submission>().HasIndex(x=>x.ExamId);
   b.Entity<Submission>().Property(x=>x.StageAtAttempt).HasMaxLength(32);
   b.Entity<Submission>().Property(x=>x.GradeAtAttempt).HasMaxLength(64);
   b.Entity<Submission>().Property(x=>x.AcademicYearAtAttempt).HasMaxLength(16);
@@ -51,8 +56,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<SubmissionAnswer>().HasIndex(x=>new{x.SubmissionId,x.QuestionId}).IsUnique();
   b.Entity<TeacherStudentRequest>().HasOne(x=>x.Teacher).WithMany().HasForeignKey(x=>x.TeacherId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<TeacherStudentRequest>().HasOne(x=>x.Student).WithMany().HasForeignKey(x=>x.StudentId).OnDelete(DeleteBehavior.NoAction);
-  b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.StudentId}).IsUnique();
+  // History is kept: only one Pending and one active Accepted link may exist per pair.
+  // Rejected and Unlinked rows stay as immutable history.
+  var pendingLinkFilter = npgsql ? "\"Status\" = 'Pending'" : "[Status] = 'Pending'";
+  var activeLinkFilter = npgsql ? "\"Status\" = 'Accepted'" : "[Status] = 'Accepted'";
+  b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.StudentId}, "IX_TeacherStudentRequests_Pending")
+      .IsUnique().HasFilter(pendingLinkFilter);
+  b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.StudentId}, "IX_TeacherStudentRequests_Active")
+      .IsUnique().HasFilter(activeLinkFilter);
   b.Entity<TeacherStudentRequest>().HasIndex(x=>x.StudentId);
+  b.Entity<TeacherStudentRequest>().HasIndex(x=>new{x.TeacherId,x.UnlinkedAtUtc}).HasDatabaseName("IX_TeacherStudentRequests_TeacherId_Unlinked");
+  b.Entity<AuditEvent>().HasIndex(x=>new{x.ActorId,x.AtUtc});
+  b.Entity<TeacherStudentRequest>().Property(x=>x.Status).HasMaxLength(24);
   b.Entity<TeacherStudentRequest>().Property(x=>x.InitiatedBy).HasMaxLength(24);
   b.Entity<TeacherStudentExamBan>().HasOne(x=>x.Exam).WithMany().HasForeignKey(x=>x.ExamId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<TeacherStudentExamBan>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.TeacherId).OnDelete(DeleteBehavior.Cascade);
@@ -83,9 +98,28 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options):DbConte
   b.Entity<TeacherStudentInvitation>().Property(x=>x.StudentName).HasMaxLength(200);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.StudentPhone).HasMaxLength(20);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.ParentPhone).HasMaxLength(20);
+  b.Entity<TeacherStudentInvitation>().Property(x=>x.ParentName).HasMaxLength(200);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.Stage).HasMaxLength(32);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.Grade).HasMaxLength(64);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.Token).HasMaxLength(64);
   b.Entity<TeacherStudentInvitation>().Property(x=>x.Status).HasMaxLength(24);
+  b.Entity<TeacherProfile>().HasOne(x=>x.Teacher).WithMany().HasForeignKey(x=>x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<TeacherProfile>().HasIndex(x=>x.TeacherId).IsUnique().HasDatabaseName("IX_TeacherProfiles_TeacherId");
+  b.Entity<TeacherProfile>().HasIndex(x=>x.PublicSlug).IsUnique().HasDatabaseName("IX_TeacherProfiles_PublicSlug");
+  b.Entity<TeacherProfile>().Property(x=>x.PublicSlug).HasMaxLength(64);
+  b.Entity<TeacherProfile>().Property(x=>x.ProfessionalName).HasMaxLength(160);
+  b.Entity<TeacherProfile>().Property(x=>x.Specialty).HasMaxLength(160);
+  b.Entity<TeacherProfile>().Property(x=>x.Bio).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.Qualifications).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.Experience).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.TeachingStyle).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.ExtraInfo).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.AvatarUrl).HasMaxLength(500);
+  b.Entity<TeacherProfile>().Property(x=>x.CoverUrl).HasMaxLength(500);
+  b.Entity<TeacherProfile>().Property(x=>x.ContactPhone).HasMaxLength(20);
+  b.Entity<TeacherProfile>().Property(x=>x.StagesJson).HasMaxLength(1000);
+  b.Entity<TeacherProfile>().Property(x=>x.GradesJson).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.SocialLinksJson).HasMaxLength(2000);
+  b.Entity<TeacherProfile>().Property(x=>x.Status).HasMaxLength(24);
  }
 }

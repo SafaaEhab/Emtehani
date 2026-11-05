@@ -13,6 +13,8 @@ public sealed class AppUser
     public string? Grade { get; set; }
     public string? StudentPhone { get; set; }
     public string? ParentPhone { get; set; }
+    /// <summary>Guardian display name captured at registration or by the teacher. Optional for legacy accounts.</summary>
+    public string? ParentName { get; set; }
     /// <summary>Maximum number of teachers the student chose at registration.</summary>
     public int? TeacherCount { get; set; }
     /// <summary>Self, Teacher, or Admin. Kept for registration-source reporting.</summary>
@@ -152,6 +154,40 @@ public sealed class TeacherStudentRequest
     public DateTime? SuspendedAtUtc { get; set; }
 }
 
+/// <summary>
+/// Public teacher portfolio. Draft profiles are visible only to their owner; only
+/// Published profiles are exposed to students or anonymous visitors.
+/// </summary>
+public sealed class TeacherProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TeacherId { get; set; }
+    public AppUser? Teacher { get; set; }
+    /// <summary>Stable public identifier used in /t/{slug}.</summary>
+    public string PublicSlug { get; set; } = "";
+    public string ProfessionalName { get; set; } = "";
+    public string? Specialty { get; set; }
+    public string? Bio { get; set; }
+    public string? Qualifications { get; set; }
+    public string? Experience { get; set; }
+    public int? YearsOfExperience { get; set; }
+    public string? TeachingStyle { get; set; }
+    public string? ExtraInfo { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? CoverUrl { get; set; }
+    /// <summary>Optional public contact number. The account phone is used as a fallback.</summary>
+    public string? ContactPhone { get; set; }
+    public string StagesJson { get; set; } = "[]";
+    public string GradesJson { get; set; } = "[]";
+    public string SocialLinksJson { get; set; } = "[]";
+    public bool ShowEmail { get; set; }
+    public bool ShowPhone { get; set; }
+    public string Status { get; set; } = "Draft";
+    public DateTime? PublishedAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
 public sealed class TeacherStudentExamBan
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -228,6 +264,7 @@ public sealed class TeacherStudentInvitation
     public string StudentName { get; set; } = "";
     public string StudentPhone { get; set; } = "";
     public string? ParentPhone { get; set; }
+    public string? ParentName { get; set; }
     public string Stage { get; set; } = "";
     public string Grade { get; set; } = "";
     public string Token { get; set; } = "";

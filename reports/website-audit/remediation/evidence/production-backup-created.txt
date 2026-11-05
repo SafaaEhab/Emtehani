@@ -1,0 +1,48 @@
+MonsterASP production verification / backup snapshot
+Date: 2026-11-05
+
+Account verified in Control panel:
+- Customer: Ahmed Gbreel (ahmedgbreel47@gmail.com), Customer ID 19681
+- Websites: 5 (4 enabled, 1 archived)
+- Databases: 5 MSSQL (all free plan)
+
+Correct website:
+- Name/domain: emtehani.runasp.net
+- Site ID: site102923
+- GUID: c44aa1b7-d11c-494d-92fb-6fa73c1167b9
+- Status: Enabled
+- Plan: FreeSite
+- Server: site102923.siteasp.net, EU / W17
+- Runtime: .NET 10.x/9.x/8.x/7.x/6.x/5.x/Core [x86]
+- Disk: 93 MB used of 5 GB
+- 74 files (before deployment), wwwroot has 14 folders / 49 files / 23.9 MB
+- Deployment methods visible: FTP/SFTP (site102923.siteasp.net, ports 21/22), Visual Studio/WebDeploy, WebFTP, Git deploy
+- Current app files deployed via WebDeploy, last updated 29.10.2026
+- AppPool uptime 1d 7h, 0 crashes, 0 recycles at snapshot
+
+Correct database:
+- Monster name: db73841.databaseasp.netEmtehani
+- ID/database: db73841
+- GUID: 1ad21590-fa56-4767-89fa-9e7f0f4b4097
+- Type: MSSQL, FreeDatabase, Enabled
+- Server: db73841.databaseasp.net, EU / S16
+- Collation: SQL_Latin1_General_CP1_CI_AS
+- Compatibility: SqlServer2025
+- Disk: 72 MB used of 1024 MB
+- Contents: 16 tables, 1 user, 2 pre-existing safety backups
+- Local access connection string is the one already used for read-only verification (db73841)
+
+Backup created before deployment:
+- File: db73841_custom_05.11.2026_639294985474398020.bak
+- Size: 9 MB
+- Backup list: 3 files / 18 MB total
+- Status: Done / Completed (background backup job)
+- Restore action is available in the Backups list.
+- Daily backups exist on separate storage (newest 17 hours old), but automatic daily backup is marked Premium; one daily backup can be uploaded into the Backup files list if needed.
+
+Deployment state at pause:
+- Backend files NOT replaced.
+- Database indexes NOT applied.
+- Frontend NOT deployed.
+- No production data modified beyond creating the backup file and reading metadata.
+- MonsterASP control-panel session expired after the backup/WebFTP navigation; manual re-authentication is required.

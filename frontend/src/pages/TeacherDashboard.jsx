@@ -170,7 +170,7 @@ export default function TeacherDashboard({ token, user, onNavigate, onCreate, on
             </div>
             <div className="grid gap-2">
               {[
-                { label: 'جلسات يمكن فتحها', value: Math.max(0, (data?.publishedExams || 0) - (data?.activeExams || 0)), icon: Radio, tone: 'text-emerald bg-emerald-soft' },
+                { label: 'جلسات يمكن فتحها', value: data?.openableExams ?? Math.max(0, (data?.publishedExams || 0) - (data?.activeExams || 0)), icon: Radio, tone: 'text-emerald bg-emerald-soft' },
                 { label: 'مقالات بانتظار التصحيح', value: data?.pendingReview || 0, icon: ClipboardCheck, tone: 'text-warning bg-warning-soft' },
                 { label: 'إجمالي المشاركات', value: data?.participantCount || 0, icon: Users, tone: 'text-blue bg-blue-soft' },
               ].map((item) => (

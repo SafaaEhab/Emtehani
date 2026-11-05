@@ -14,7 +14,9 @@ import {
   openAuth,
   openExam,
   registerAndLogin,
+  fourPartName,
   uiLogin,
+  uniqueNameToken,
   uniquePhone,
   uniqueSuffix,
 } from './helpers.js';
@@ -223,7 +225,7 @@ test('authentication: validation, registration, duplicate email, login, and pass
   await page.locator('#auth-email').fill(email);
   await page.locator('#auth-password').fill('1234567');
   await page.locator('form').getByRole('button', { name: 'تسجيل الدخول', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('كلمة المرور يجب أن تكون بين 8 و128 حرفاً.');
+  await expect(page.getByRole('alert')).toContainText('كلمة المرور يجب أن تكون بين 10 و128 حرفاً.');
 
   // Password visibility control.
   await expect(page.locator('#auth-password')).toHaveAttribute('type', 'password');
@@ -251,6 +253,9 @@ test('authentication: validation, registration, duplicate email, login, and pass
   await page.locator('#auth-grade').selectOption('الصف الثالث الثانوي');
   await page.locator('#auth-student-phone').fill(studentPhone);
   await page.locator('#auth-parent-phone').fill(parentPhone);
+  await page.locator('#auth-parent-name').fill('أحمد محمد علي حسن');
+  await page.getByLabel('ابحث باسم المدرس').fill(registrationTeacher.fullName);
+  await expect(page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`)).toBeVisible();
   await page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`).click();
 
   await page.locator('#auth-name').fill('AB');
@@ -258,9 +263,9 @@ test('authentication: validation, registration, duplicate email, login, and pass
   await page.locator('#auth-password').fill('ValidPass!2026');
   await page.locator('input[type="checkbox"]').check();
   await page.locator('form').getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('اكتب الاسم الكامل');
+  await expect(page.getByRole('alert')).toContainText('رباع');
 
-  await page.locator('#auth-name').fill(`طالب جودة ${suffix}`);
+  await page.locator('#auth-name').fill(fourPartName(`طالب جودة ${uniqueNameToken(4)}`));
   await page.locator('input[type="checkbox"]').uncheck();
   await page.locator('form').getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('يجب الموافقة على شروط الاستخدام');
@@ -281,13 +286,16 @@ test('authentication: validation, registration, duplicate email, login, and pass
   await page.getByRole('button', { name: 'تسجيل الخروج', exact: true }).first().click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('امتحانات أونلاين');
   await page.getByRole('button', { name: 'ابدأ مجاناً', exact: true }).filter({ visible: true }).first().click();
-  await page.locator('#auth-name').fill(`طالب مكرر ${suffix}`);
+  await page.locator('#auth-name').fill(fourPartName(`طالب مكرر ${uniqueNameToken(4)}`));
   await page.locator('#auth-email').fill(email);
   await page.locator('#auth-password').fill('ValidPass!2026');
   await page.locator('#auth-stage').selectOption('ثانوي');
   await page.locator('#auth-grade').selectOption('الصف الثالث الثانوي');
   await page.locator('#auth-student-phone').fill(uniquePhone());
   await page.locator('#auth-parent-phone').fill(uniquePhone());
+  await page.locator('#auth-parent-name').fill('أحمد محمد علي حسن');
+  await page.getByLabel('ابحث باسم المدرس').fill(registrationTeacher.fullName);
+  await expect(page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`)).toBeVisible();
   await page.locator(`[data-testid="auth-teacher-${registrationTeacher.id}"]`).click();
   await page.locator('input[type="checkbox"]').check();
   await page.locator('form').getByRole('button', { name: 'إنشاء الحساب', exact: true }).click();

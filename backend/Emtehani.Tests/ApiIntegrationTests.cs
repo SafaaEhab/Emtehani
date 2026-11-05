@@ -142,12 +142,12 @@ public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFac
         {
             fullName = "مدرس تسجيل مفتوح",
             email,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = JsonNode.Parse(await login.Content.ReadAsStringAsync());
         Assert.Equal("Teacher", auth!["role"]!.GetValue<string>());
@@ -163,7 +163,7 @@ public sealed class RegistrationTests(ApiFactory factory) : IClassFixture<ApiFac
         {
             fullName = "مدرس إنتاج",
             email = $"teacher-production-{Guid.NewGuid():N}@example.test",
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -196,6 +196,15 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     private static string TestPhone(string prefix) =>
         prefix + Random.Shared.Next(100000000, 999999999).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
+    internal static string EnsureFourPartName(string name)
+    {
+        var parts = (name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var fillers = new[] { "طالب", "مميز", "أول", "ثاني" };
+        var filler = 0;
+        while (parts.Count < 4) parts.Add(fillers[filler++ % fillers.Length]);
+        return string.Join(' ', parts.Take(8));
+    }
+
     private async Task<Guid> GetRegistrationTeacherId()
     {
         if (_registrationTeacherId is Guid cached) return cached;
@@ -209,7 +218,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
     {        var client = factory.CreateClient();
         var isStudent = role == "Student";
         var selectedTeacherId = isStudent ? teacherId ?? await GetRegistrationTeacherId() : (Guid?)null;
-        var displayName = name;
+        var displayName = isStudent ? EnsureFourPartName(name) : name;
         HttpResponseMessage register;
         for (var attempt = 0; ; attempt++)
         {
@@ -217,7 +226,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             {
                 fullName = displayName,
                 email,
-                password = "Passw0rd!",
+                password = "Passw0rd!2026",
                 role,
                 stage = isStudent ? stage ?? DefaultStage : null,
                 grade = isStudent ? grade ?? DefaultGrade : null,
@@ -228,10 +237,13 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             });
             if (register.StatusCode != HttpStatusCode.Conflict || attempt >= 5) break;
             // A previous test in the shared database may have used the same display name.
-            displayName = $"{name} {Guid.NewGuid():N}"[..Math.Min(name.Length + 9, 120)];
+            // Use letters only: student names may not contain digits.
+            var suffix = new string(Guid.NewGuid().ToString("N").Where(char.IsLetter).Take(4).ToArray());
+            displayName = $"{EnsureFourPartName(name)} {(suffix.Length >= 2 ? suffix : "مم")}";
+            if (displayName.Length > 120) displayName = EnsureFourPartName(name);
         }
         Assert.True(register.StatusCode == HttpStatusCode.OK, $"{register.StatusCode}: {await register.Content.ReadAsStringAsync()}");
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await ReadJson(login);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth["token"]!.GetValue<string>());
@@ -1008,19 +1020,19 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             fullName = "مدرس بيئة فارغة",
             email = teacherEmail,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         });
         Assert.Equal(HttpStatusCode.OK, teacherRegister.StatusCode);
-        var teacherLogin = await client.PostAsJsonAsync("/api/auth/login", new { email = teacherEmail, password = "Passw0rd!" });
+        var teacherLogin = await client.PostAsJsonAsync("/api/auth/login", new { email = teacherEmail, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, teacherLogin.StatusCode);
         var teacherAuth = await ReadJson(teacherLogin);
         var email = Email("idle-student");
         var register = await client.PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = "طالب بدون امتحان",
+            fullName = "طالب بدون امتحان اختبار",
             email,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = DefaultStage,
             grade = DefaultGrade,
@@ -1030,7 +1042,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             teacherIds = new[] { GuidValue(teacherAuth["userId"]) }
         });
         Assert.Equal(HttpStatusCode.OK, register.StatusCode);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await ReadJson(login);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth["token"]!.GetValue<string>());
@@ -1209,9 +1221,9 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             var email = Email($"collision-{i}");
             var register = await client.PostAsJsonAsync("/api/auth/register", new
             {
-                fullName = $"طالب ت撞{i}",
+                fullName = $"طالب اختبار {new string((char)('أ' + i), 2)} {new string(Guid.NewGuid().ToString("N").Where(char.IsLetter).Take(4).ToArray())} فريد",
                 email,
-                password = "Passw0rd!",
+                password = "Passw0rd!2026",
                 role = "Student",
                 stage = DefaultStage,
                 grade = DefaultGrade,
@@ -1221,7 +1233,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
                 teacherIds = new[] { registrationTeacherId }
             });
             Assert.Equal(HttpStatusCode.OK, register.StatusCode);
-            var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+            var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
             var auth = await ReadJson(login);
             var code = auth["studentCode"]!.GetValue<string>();
             Assert.Matches("^[0-9]{6}$", code);
@@ -1238,7 +1250,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         // Register multiple students and have them join.
         for (var i = 0; i < 5; i++)
         {
-            var (student, studentAuth) = await RegisterAndLogin(Email($"pag-student-{i}"), "Student", $"طالب تجزئة {i}");
+            var (student, studentAuth) = await RegisterAndLogin(Email($"pag-student-{i}"), "Student", $"طالب تجزئة {new string((char)('أ' + i), 2)} صفحة");
             await EnrollStudent(teacher, student);
             var code = StudentCode(studentAuth);
             var joined = await student.PostAsJsonAsync("/api/exams/enter-code", new { code });
@@ -1352,22 +1364,23 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
             Assert.Equal(HttpStatusCode.Created, create.StatusCode);
             var id = GuidValue((await ReadJson(create))["id"]);
             Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsync($"/api/exams/{id}/publish", null)).StatusCode);
-            Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{id}/enter", null)).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/exams/{id}/state", new { action = "open" })).StatusCode);
             return id;
         }
 
         var now = DateTime.UtcNow;
         var openExam = await CreateWindowExam("نافذة مفتوحة", now.AddHours(-1), now.AddMinutes(10));
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{openExam}/enter", null)).StatusCode);
         var started = await student.PostAsync($"/api/exams/{openExam}/start", null);
         Assert.Equal(HttpStatusCode.OK, started.StatusCode);
         var remaining = (await ReadJson(started))["remainingSeconds"]!.GetValue<int>();
         Assert.InRange(remaining, 540, 600);
 
         var expiredExam = await CreateWindowExam("نافذة منتهية", now.AddHours(-2), now.AddMinutes(-1));
-        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{expiredExam}/start", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{expiredExam}/enter", null)).StatusCode);
 
         var futureExam = await CreateWindowExam("نافذة مستقبلية", now.AddHours(1), now.AddHours(2));
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/exams/{futureExam}/enter", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await student.PostAsync($"/api/exams/{futureExam}/start", null)).StatusCode);
 
         var other = await RegisterAndLogin(Email("availability-other-teacher"), "Teacher", "مدرس آخر");
@@ -1584,7 +1597,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var relationship = await db.TeacherStudentRequests.SingleAsync(x => x.TeacherId == teacherId && x.StudentId == studentId);
-            Assert.Equal("Accepted", relationship.Status);
+            Assert.Equal("Unlinked", relationship.Status);
             Assert.NotNull(relationship.UnlinkedAtUtc);
             Assert.Null(relationship.SuspendedAtUtc);
             Assert.False(await db.TeacherStudentExamBans.AnyAsync(x => x.TeacherId == teacherId && x.StudentId == studentId));
@@ -1624,9 +1637,15 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var relationship = await db.TeacherStudentRequests.SingleAsync(x => x.TeacherId == teacherId && x.StudentId == studentId);
-            Assert.Equal("Accepted", relationship.Status);
-            Assert.Null(relationship.UnlinkedAtUtc);
+            var history = await db.TeacherStudentRequests
+                .Where(x => x.TeacherId == teacherId && x.StudentId == studentId)
+                .OrderBy(x => x.CreatedAtUtc)
+                .ToListAsync();
+            Assert.Equal(2, history.Count);
+            Assert.Equal("Unlinked", history[0].Status);
+            Assert.NotNull(history[0].UnlinkedAtUtc);
+            Assert.Equal("Accepted", history[1].Status);
+            Assert.Null(history[1].UnlinkedAtUtc);
         }
 
         var relinked = await teacher.GetFromJsonAsync<JsonNode>($"/api/teacher/students/{studentId}");
@@ -1646,7 +1665,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             fullName = "طالب بلا مرحلة",
             email = Email("education-missing"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student"
         });
         Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
@@ -1655,7 +1674,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             fullName = "طالب مرحلة غير متطابقة",
             email = Email("education-mismatched"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = "ثانوي",
             grade = "الصف الأول الابتدائي"
@@ -1666,9 +1685,9 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var registrationTeacherId = await GetRegistrationTeacherId();
         var valid = await anonymous.PostAsJsonAsync("/api/auth/register", new
         {
-            fullName = "طالب مرحلة صحيحة",
+            fullName = "طالب مرحلة صحيحة اختبار",
             email,
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = DefaultStage,
             grade = DefaultGrade,
@@ -1679,7 +1698,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         });
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
 
-        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var auth = await ReadJson(login);
         Assert.Equal(DefaultStage, auth["stage"]!.GetValue<string>());
@@ -1689,7 +1708,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             fullName = "مدرس بلا مرحلة",
             email = Email("education-teacher"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Teacher"
         });
         Assert.Equal(HttpStatusCode.OK, teacher.StatusCode);
@@ -1778,7 +1797,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         {
             fullName = "طالب بكالوريا بصف خاطئ",
             email = Email("baccalaureate-invalid"),
-            password = "Passw0rd!",
+            password = "Passw0rd!2026",
             role = "Student",
             stage = "البكالوريا",
             grade = "الصف الثالث الثانوي"
@@ -1886,7 +1905,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(DefaultStage, refreshed!["stage"]!.GetValue<string>());
         Assert.Equal(DefaultGrade, refreshed["grade"]!.GetValue<string>());
 
-        var login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var newAuth = await ReadJson(login);
         Assert.Equal(DefaultStage, newAuth["stage"]!.GetValue<string>());
@@ -2016,12 +2035,12 @@ public sealed class ApiIntegrationTests(ApiFactory factory) : IClassFixture<ApiF
         var weak = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "short" });
         Assert.Equal(HttpStatusCode.BadRequest, weak.StatusCode);
 
-        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "NewPassw0rd!" });
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, password = "NewPassw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
 
-        var oldLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!" });
+        var oldLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Passw0rd!2026" });
         Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
-        var newLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "NewPassw0rd!" });
+        var newLogin = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "NewPassw0rd!2026" });
         Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
         Assert.True(auth["studentCode"] != null);
 

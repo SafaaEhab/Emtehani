@@ -4,12 +4,14 @@ import { Alert, Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, Pa
 import { request } from '../lib/api';
 import { EDUCATION_STAGES, gradesForStage, isValidEducation } from '../lib/education';
 import { formatDate, formatNumber, scoreText } from '../lib/format';
+import { isValidPhone, nameParts, normalizeDisplayName, parentNameError, phoneDigits, studentFullNameError } from '../lib/validation';
 
 function emptyForm(profile) {
   return {
     fullName: profile?.fullName || '',
     studentPhone: profile?.studentPhone || '',
     parentPhone: profile?.parentPhone || '',
+    parentName: profile?.parentName || '',
     stage: profile?.stage || '',
     grade: profile?.grade || '',
   };
@@ -62,10 +64,18 @@ export default function StudentProfilePage({ token, onProfileUpdated }) {
   }
 
   function validate() {
-    if (form.fullName.trim().length < 3) return 'اكتب الاسم الكامل (3 أحرف على الأقل).';
-    if (!/^\+?\d{7,15}$/.test(form.studentPhone.replace(/[\s-]/g, ''))) return 'أدخل رقم هاتف طالب صحيحاً.';
-    if (!/^\+?\d{7,15}$/.test(form.parentPhone.replace(/[\s-]/g, ''))) return 'أدخل رقم هاتف ولي أمر صحيحاً.';
-    if (form.studentPhone.replace(/[\s-]/g, '') === form.parentPhone.replace(/[\s-]/g, '')) return 'رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.';
+    // Legacy accounts may keep their old three-part display name while updating
+    // phone/guardian/grade fields. A real name change still requires four parts.
+    const nameUnchanged = normalizeDisplayName(form.fullName) === normalizeDisplayName(profile?.fullName || '');
+    if (!nameUnchanged) {
+      const nameError = studentFullNameError(form.fullName);
+      if (nameError) return nameError;
+    }
+    if (!isValidPhone(form.studentPhone)) return 'أدخل رقم هاتف طالب صحيحاً.';
+    if (!isValidPhone(form.parentPhone)) return 'أدخل رقم هاتف ولي أمر صحيحاً.';
+    if (phoneDigits(form.studentPhone) === phoneDigits(form.parentPhone)) return 'رقم هاتف الطالب يجب أن يختلف عن رقم ولي الأمر.';
+    const parentError = parentNameError(form.parentName);
+    if (parentError) return parentError;
     if (form.stage && !isValidEducation(form.stage, form.grade)) return 'اختر المرحلة والصف المناسبين.';
     return '';
   }
@@ -79,9 +89,10 @@ export default function StudentProfilePage({ token, onProfileUpdated }) {
         token,
         method: 'PUT',
         body: JSON.stringify({
-          fullName: form.fullName.trim(),
-          studentPhone: form.studentPhone.trim(),
-          parentPhone: form.parentPhone.trim(),
+          fullName: normalizeDisplayName(form.fullName),
+          studentPhone: phoneDigits(form.studentPhone),
+          parentPhone: phoneDigits(form.parentPhone),
+          parentName: normalizeDisplayName(form.parentName),
           stage: form.stage || null,
           grade: form.grade || null,
         }),
@@ -154,8 +165,11 @@ export default function StudentProfilePage({ token, onProfileUpdated }) {
 
             <form onSubmit={submit} className="grid gap-4" noValidate>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="الاسم الكامل" id="profile-name" hint="يجب أن يطابق اسمك في المدرسة.">
+                <Field label="اسم الطالب رباعياً" id="profile-name" hint="أربعة أسماء واضحة، ويجب أن يطابق اسمك في المدرسة.">
                   <Input id="profile-name" maxLength={120} value={form.fullName} onChange={update('fullName')} autoComplete="name" />
+                  <p className={`mt-1 text-[10.5px] font-bold ${nameParts(form.fullName).length >= 4 ? 'text-emerald' : 'text-warning'}`}>
+                    عدد الأجزاء: {nameParts(form.fullName).length} / 4
+                  </p>
                 </Field>
                 <Field label="كود الطالب" id="profile-code" hint="يُستخدم لدخول الامتحانات ولا يمكن تغييره.">
                   <Input id="profile-code" value={profile?.studentCode || ''} readOnly dir="ltr" className="ui-number text-left" />
@@ -170,6 +184,10 @@ export default function StudentProfilePage({ token, onProfileUpdated }) {
                   <Input id="profile-parent-phone" dir="ltr" inputMode="tel" maxLength={20} value={form.parentPhone} onChange={update('parentPhone')} className="text-left" placeholder="01xxxxxxxxx" />
                 </Field>
               </div>
+
+              <Field label="اسم ولي الأمر" id="profile-parent-name" hint="يظهر للمدرسين المرتبطين بك فقط.">
+                <Input id="profile-parent-name" maxLength={200} value={form.parentName} onChange={update('parentName')} placeholder="مثال: أحمد محمد علي" />
+              </Field>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="المرحلة التعليمية" id="profile-stage">
